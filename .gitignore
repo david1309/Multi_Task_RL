@@ -3,3 +3,6 @@
 
 # Ignore video folders
 **/videos/
+Multi_Task_RL/*/videos/
+*/videos/
+videos/
