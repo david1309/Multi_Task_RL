@@ -1,0 +1,5 @@
+*.gz
+.ipynb_checkpoints
+
+# Ignore video folders
+**/videos/
