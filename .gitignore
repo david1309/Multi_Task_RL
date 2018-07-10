@@ -8,3 +8,5 @@ Multi_Task_RL/*/videos/
 videos/
 PPO_MTL/videos/
 PPO_STL/videos/
+PPO_MTL/videos
+PPO_STL/videos
