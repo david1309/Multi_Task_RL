@@ -1,0 +1,6 @@
+model_checkpoint_path: "val_func_ep_30000"
+all_model_checkpoint_paths: "val_func_ep_26980"
+all_model_checkpoint_paths: "val_func_ep_27980"
+all_model_checkpoint_paths: "val_func_ep_28980"
+all_model_checkpoint_paths: "val_func_ep_29980"
+all_model_checkpoint_paths: "val_func_ep_30000"
