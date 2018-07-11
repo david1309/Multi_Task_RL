@@ -68,6 +68,7 @@ class Logger(object):
             now: unique sub-directory name (e.g. date/time string)
             logname_file: suffix of the name of the log file
         """
+        logname = ''.join(str(e) +'/' for e in logname)
         path = os.path.join('log-files', logname, now)
         if not os.path.exists(path):  os.makedirs(path) # create directory if it doesn't exist
         # filenames = glob.glob('*.py')  # put copy of all python files in log_dir
@@ -103,7 +104,7 @@ class Logger(object):
         """Print metrics to stdout"""
         log_keys = [k for k in log.keys()]
         log_keys.sort()
-        print('***** Episode {}, Mean R = {:.1f} *****'.format(log['_Episode'],
+        print('***** MTL: Episode {}, Mean R = {:.1f} *****'.format(log['_Episode'],
                                                                   log['_MeanReward']))
 
         print('{:s}: {:.3g}'.format('PolicyLoss', log['PolicyLoss']))

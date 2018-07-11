@@ -1,7 +1,9 @@
 """
-PPO: Proximal Policy Optimization
+PPO: Proximal Policy Optimization for Single Task Learning
 
-Written by Patrick Coady (pat-coady.github.io)
+Adapted by David Alvarez Charris (david13.ing@gmail.com)
+
+Original code Written by: Patrick Coady (pat-coady.github.io)
 
 PPO uses a loss function and gradient descent to approximate
 Trust Region Policy Optimization (TRPO). See these papers for
@@ -21,8 +23,7 @@ implementation:
 https://github.com/joschu/modular_rl
 
 This implementation learns policies for continuous environments
-in the OpenAI Gym (https://gym.openai.com/). Testing was focused on
-the MuJoCo control tasks.
+in the OpenAI Gym (https://gym.openai.com/).
 """
 import gym
 import numpy as np
@@ -38,13 +39,14 @@ import signal
 import pickle # to save Scaler
 
 
-def init_gym(env_name):
+def init_gym(env_name, task_param = None):
     """
     Initialize gym environment, return dimension of observation
     and action spaces.
 
     Args:
         env_name: str environment name (e.g. "Humanoid-v1")
+        task_param: parameter to create a task specific environment
 
     Returns: 3-tuple
         gym environment (object)
@@ -55,7 +57,8 @@ def init_gym(env_name):
     obs_dim = np.prod(env.observation_space.shape) # env.observation_space.shape[0]
     act_dim = np.prod(env.action_space.shape) #env.action_space.shape[0]
 
-    env.env.world.gravity = (0,-10)
+    if task_param != None: # TODO: dont hardcore which aspect of env. to modify but rather receive it as input argument
+        env.env.world.gravity = (-task_param,-10) 
 
     return env, obs_dim, act_dim
 
@@ -115,8 +118,7 @@ def run_policy(env, policy, scaler, logger, episodes, animate=False):
     Args:
         env: ai gym environment
         policy: policy object with sample() method
-        scaler: scaler object, used to scale/offset each observation dimension
-            to a similar range
+        scaler: scaler object, used to scale/offset each observation dimension to a similar range
         logger: logger object, used to save stats from episodes
         episodes: total episodes to run
         animate: boolean, True uses env.render() method to animate episode
@@ -182,8 +184,7 @@ def add_value(trajectories, val_func):
 
     Args:
         trajectories: as returned by run_policy()
-        val_func: object with predict() method, takes observations
-            and returns predicted state value
+        val_func: object with predict() method, takes observations and returns predicted state value
 
     Returns:
         None (mutates trajectories dictionary to add 'values')
@@ -255,22 +256,26 @@ def build_train_set(trajectories):
 def log_batch_stats(observes, actions, advantages, disc_sum_rew, logger, episode):
     """ Log various batch statistics """
     logger.log({'_Episode': episode,
-                '_mean_obs': np.mean(observes),
-                '_min_obs': np.min(observes),
-                '_max_obs': np.max(observes),
-                '_std_obs': np.mean(np.var(observes, axis=0)),
-                '_mean_act': np.mean(actions),
-                '_min_act': np.min(actions),
-                '_max_act': np.max(actions),
-                '_std_act': np.mean(np.var(actions, axis=0)),
+
+                '_mean_discrew': np.mean(disc_sum_rew),
+                '_min_discrew': np.min(disc_sum_rew),
+                '_max_discrew': np.max(disc_sum_rew),
+                '_std_discrew': np.var(disc_sum_rew), 
+
                 '_mean_adv': np.mean(advantages),
                 '_min_adv': np.min(advantages),
                 '_max_adv': np.max(advantages),
                 '_std_adv': np.var(advantages),
-                '_mean_discrew': np.mean(disc_sum_rew),
-                '_min_discrew': np.min(disc_sum_rew),
-                '_max_discrew': np.max(disc_sum_rew),
-                '_std_discrew': np.var(disc_sum_rew)                
+                '_mean_obs': np.mean(observes),
+
+                '_min_obs': np.min(observes),
+                '_max_obs': np.max(observes),
+                '_std_obs': np.mean(np.var(observes, axis=0)),
+                
+                '_mean_act': np.mean(actions),
+                '_min_act': np.min(actions),
+                '_max_act': np.max(actions),
+                '_std_act': np.mean(np.var(actions, axis=0))               
                 })
 
 
@@ -344,7 +349,7 @@ class GracefulKiller:
 
 # Main Train Execution
 def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, init_pol_logvar, animate,\
-        save_video, num_episodes_sim):
+        save_video, num_episodes_sim, task_params, task_name):
     """ Main training loop
 
     Args:
@@ -358,9 +363,11 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
         init_pol_logvar: natural log of initial policy variance
         save_video: Boolean determining if videos of the agent will be saved
         num_episodes_sim: Number of episodes to simulate/save videos for
+        task_params: list of parameters to modify each environment for a different task
+        task_name: name user assigns to the task being used to modify the environment
     """
 
-    # Environment Initialization
+    # ****************  Environment Initialization and Paths  ***************
     env, obs_dim, act_dim = init_gym(env_name)
     obs_dim += 1  # add 1 to obs dimension for time step feature (see run_episode())
 
@@ -368,7 +375,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
     print ("\n\n---- PATHS: ----")
     now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
     logger = Logger(logname=env_name, now=now) # logger object
-    aigym_path = os.path.join('./videos', env_name, now) # videos folders
+    aigym_path= os.path.join('./videos', env_name, task_name, now) # videos folders 
     agent_path = os.path.join('agents', env_name, now) # agent / policy folders
     os.makedirs(agent_path)
     print("Path for Saved Videos: {}".format(aigym_path))
@@ -421,7 +428,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
             if save_video: 
                 print ("---- Saving Video at Episode {} ----".format(episode))
                 _ = sim_agent(env, policy, scaler, num_episodes_sim, save_video=True, 
-                                out_dir=aigym_path+"/vid_ep_{}".format(episode))
+                                out_dir=aigym_path+"/vid_ep_{}/{}_{}".format(episode, task_name, task))
                 env.close() # closes window open by monitor wrapper
                 env, _, _ = init_gym(env_name) # Recreate env as it is killed when saving videos
             print("\n\n")

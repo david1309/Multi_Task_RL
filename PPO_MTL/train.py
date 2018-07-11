@@ -1,5 +1,5 @@
 """
-PPO: Proximal Policy Optimization
+PPO: Proximal Policy Optimization for Multi Task Learning
 
 Adapted by David Alvarez Charris (david13.ing@gmail.com)
 
@@ -57,7 +57,7 @@ def init_gym(env_name, task_param = None):
     obs_dim = np.prod(env.observation_space.shape) # env.observation_space.shape[0]
     act_dim = np.prod(env.action_space.shape) #env.action_space.shape[0]
 
-    if task_param != None:
+    if task_param != None: # TODO: dont hardcore which aspect of env. to modify but rather receive it as input argument
     	env.env.world.gravity = (-task_param,-10)
 
     return env, obs_dim, act_dim
@@ -69,8 +69,8 @@ def run_episode(env, policy, scaler, task, animate=False):
     Args:
         env: ai gym environment
         policy: policy object with sample() method
-        scaler: scaler object, used to scale/offset each observation dimension
-            to a similar range
+        scaler: scaler object, used to scale/offset each observation dimension to a similar range
+        task: int indicating which head (task specific hidden layer) of the policy to use
         animate: boolean, True uses env.render() method to animate episode
 
     Returns: 4-tuple of NumPy arrays
@@ -122,7 +122,9 @@ def run_policy(env, policy, scaler, logger, episodes, task, animate=False):
             to a similar range
         logger: logger object, used to save stats from episodes
         episodes: total episodes to run
+        task: int indicating which head (task specific hidden layer) of the policy to use
         animate: boolean, True uses env.render() method to animate episode
+
 
     Returns: list of trajectory dictionaries, list length = number of episodes
         'observes' : NumPy array of states from episode
@@ -185,8 +187,8 @@ def add_value(trajectories, val_func, task):
 
     Args:
         trajectories: as returned by run_policy()
-        val_func: object with predict() method, takes observations
-            and returns predicted state value
+        val_func: object with predict() method, takes observations and returns predicted state value
+        task: int indicating which head (task specific hidden layer) of the Value. func to use
 
     Returns:
         None (mutates trajectories dictionary to add 'values')
@@ -258,32 +260,37 @@ def build_train_set(trajectories):
 def log_batch_stats(observes, actions, advantages, disc_sum_rew, logger, episode):
     """ Log various batch statistics """
     logger.log({'_Episode': episode,
-                '_mean_obs': np.mean(observes),
-                '_min_obs': np.min(observes),
-                '_max_obs': np.max(observes),
-                '_std_obs': np.mean(np.var(observes, axis=0)),
-                '_mean_act': np.mean(actions),
-                '_min_act': np.min(actions),
-                '_max_act': np.max(actions),
-                '_std_act': np.mean(np.var(actions, axis=0)),
+
+                '_mean_discrew': np.mean(disc_sum_rew),
+                '_min_discrew': np.min(disc_sum_rew),
+                '_max_discrew': np.max(disc_sum_rew),
+                '_std_discrew': np.var(disc_sum_rew), 
+
                 '_mean_adv': np.mean(advantages),
                 '_min_adv': np.min(advantages),
                 '_max_adv': np.max(advantages),
                 '_std_adv': np.var(advantages),
-                '_mean_discrew': np.mean(disc_sum_rew),
-                '_min_discrew': np.min(disc_sum_rew),
-                '_max_discrew': np.max(disc_sum_rew),
-                '_std_discrew': np.var(disc_sum_rew)                
+                '_mean_obs': np.mean(observes),
+
+                '_min_obs': np.min(observes),
+                '_max_obs': np.max(observes),
+                '_std_obs': np.mean(np.var(observes, axis=0)),
+
+                '_mean_act': np.mean(actions),
+                '_min_act': np.min(actions),
+                '_max_act': np.max(actions),
+                '_std_act': np.mean(np.var(actions, axis=0))               
                 })
 
 
 # Other Useful Methods
-def sim_agent(env, policy, scaler, task, num_episodes_sim=1, animate=False, save_video=False, out_dir='./video'):
+def sim_agent(env, policy, task, scaler, task, num_episodes_sim=1, animate=False, save_video=False, out_dir='./video'):
     """ Simulates trainned agent (Policy) in given environment (env)
 
     Args:
         env: ai gym environment
         policy: policy object with sample() method
+        task: int indicating which head (task specific hidden layer) of the policy to use
         num_episodes_sim (int): number of episodes  to simulate
         animate (bool): determines if video should be rendered in window
         save_video (bool): enables saving video and other stats of simulated episodes
@@ -347,7 +354,7 @@ class GracefulKiller:
 
 # Main Train Execution
 def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, init_pol_logvar, animate,\
-        save_video, num_episodes_sim, task_params):
+        save_video, save_video_rate, num_episodes_sim, task_params, task_name):
     """ Main training loop
 
     Args:
@@ -360,17 +367,20 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
         hid1_mult: hid1 size for policy and value_f (mutliplier of obs dimension)
         init_pol_logvar: natural log of initial policy variance
         save_video: Boolean determining if videos of the agent will be saved
+        save_video_rate: Int determining how often to save videos for
         num_episodes_sim: Number of episodes to simulate/save videos for
         task_params: list of parameters to modify each environment for a different task
+        task_name: name user assigns to the task being used to modify the environment
     """
 
-    # Environment Initialization and Paths
+
+    # ****************  Environment Initialization and Paths  ***************
+    task_params_str = ''.join(str(e) +', ' for e in task_params)
     task_params = [float(i) for i in task_params]
     num_tasks = len(task_params)
     envs = [None]*num_tasks
     scalers = [None]*num_tasks
     loggers = [None]*num_tasks
-    aigym_paths = [None]*num_tasks
 
     print ("\n\n---- PATHS: ----")
     now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
@@ -381,34 +391,36 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
         obs_dim += 1  # add 1 to obs dimension for time step feature (see run_episode())
         scalers[task] = Scaler(obs_dim)
 
-        # Create task specific Paths
-        loggers[task] = Logger(logname=env_name, now=now, logname_file= "_task_{}".format(task_params[task])) # logger object
+        # Create task specific Paths and logger object
+        loggers[task] = Logger(logname= [env_name, task_name, task_params_str], now=now, \
+                               logname_file= "_{}_{}".format(task_name, task_params[task])) 
         
-    aigym_path= os.path.join('./videos', env_name, now) # videos folders 
-    agent_path = os.path.join('agents', env_name , now) # agent / policy folders
+    aigym_path= os.path.join('./videos', env_name, task_name, task_params_str, now) # videos folders 
+    agent_path = os.path.join('agents', env_name , task_name, task_params_str, now) # agent / policy folders
     os.makedirs(agent_path)
-    print("Path for Saved Agents: {}\n".format(agent_path))    
     print("Path for Saved Videos : {}".format(aigym_path)) 
+    print("Path for Saved Agents: {}\n".format(agent_path))    
     
-    # Initialize Policy, Value Networks and Scaler 
+
+    # ****************  Initialize Policy, Value Networks and Scaler  ***************
     val_func = NNValueFunction(obs_dim, hid1_mult)
     policy = Policy(obs_dim, act_dim, kl_targ, hid1_mult, init_pol_logvar)
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
 
-    # Start Trainning
+
+    # ****************  Start Training  ***************
     animate = True if animate == "True" else False
     save_video = True if save_video == "True" else False
-    saver_perc = int(num_episodes*0.02) # determinines when the agent and video should be saved
-    saver_offset = saver_perc
+    saver_offset = save_video_rate
     killer = GracefulKiller()
     episode = 0
     
     # Episode is counted across all tasks i.e. N episodes indicates each tasks has been runned for N times
     while episode < num_episodes:
 
-        # Obtain data (train set) for all tasks        
+        # ****************  Obtain data (train set)  ***************         
         observes_all = [None]*num_tasks
         actions_all = [None]*num_tasks
         advantages_all = [None]*num_tasks
@@ -431,18 +443,18 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
             log_batch_stats(observes_all[task], actions_all[task], advantages_all[task], disc_sum_rew_all[task], \
                             loggers[task], episode)
 
-
-        # Update Policy and Value Networks with data from all tasks
+        # ****************  Update Policy and Value Networks  ***************
         for task in range(num_tasks):
             policy.update(task, observes_all[task], actions_all[task], advantages_all[task], loggers[task])  # update policy
             val_func.fit(task, observes_all[task], disc_sum_rew_all[task], loggers[task])  # update value function
             loggers[task].write(display=True)  # write logger results to file and stdout
 
 
+        # ****************  Storing NN and Videos  ***************
         # Store Policy, Value Network and Scaler: every 20% of total episodes or in first/last episode
         if episode >= saver_offset or episode >=num_episodes or episode <=batch_size or killer.kill_now:
         # TODO: Make saving agent/video a method so that it can be called in killer.kill_now 
-            saver_offset += saver_perc
+            saver_offset += save_video_rate
             policy.tf_saver.save(policy.sess, "{}/policy_ep_{}".format(agent_path, episode)) # Save Policy Network
             val_func.tf_saver.save(val_func.sess, "{}/val_func_ep_{}".format(agent_path, episode)) # Save Value Network
             pickle.dump(scalers, open("{}/scalers_ep_{}.p".format(agent_path, episode), 'wb'))            
@@ -452,8 +464,8 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
             if save_video: 
                 print ("---- Saving Video at Episode {} ----".format(episode))
                 for task in range(num_tasks):
-                    _ = sim_agent(envs[task], policy, scalers[task], num_episodes_sim, save_video=True, 
-                                    out_dir=aigym_path+"/vid_ep_{}/task_{}".format(episode, task))
+                    _ = sim_agent(envs[task], policy, task, scalers[task], num_episodes_sim, save_video=True, 
+                                    out_dir=aigym_path + "/vid_ep_{}/{}_{}".format(episode, task_name, task))
                     envs[task].close() # closes window open by monitor wrapper
                     envs[task], _, _ = init_gym(env_name,task_param=task_params[task]) # Recreate env as it was killed
             print("\n\n")
@@ -463,8 +475,9 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
                 if input('Terminate training (y/[n])? ') == 'y':
                     break
                 killer.kill_now = False
-    
-    # Terminate Sessions
+
+
+    # ****************  Terminate Variables  **************
     for task in range(num_tasks):
         envs[task].close()
         loggers[task].close()
@@ -473,7 +486,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
 
 
 # Example of how to Train Agent:
-# python train.py BipedalWalker-v2 --num_episodes 10000 --batch_size 20 --task_params 123
+# python train.py BipedalWalker-v2 --num_episodes 20000 --batch_size 20 --task_params 123 --task_name Wind --save_video True --save_video_rate 2000
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment '
                                                   'using Proximal Policy Optimizer'))
@@ -495,12 +508,15 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--animate', type=str,  help='Determines if simulation will be rendered [False]',
                         default="False")
     parser.add_argument('-svid', '--save_video', type=str,  
-                        help='Determines if videos will be saved every 20% episodes [False]',default="False")
+                        help='Determines if videos will be saved every "save_video_rate" episodes [False]', default="False")
+    parser.add_argument('-svidr', '--save_video_rate', type=int,  
+                        help='Every how many episodes to save video for [1000]', default=1000)
     parser.add_argument('-nsim', '--num_episodes_sim', type=int,  
                         help='Nuber of Episodes to simulate / save videos for [1]', default=1)
 
     # MTL Params
     parser.add_argument('-tp', '--task_params', type=list, help='List of parameters for each task [None]', default=None)
+    parser.add_argument('-tn', '--task_name', type=str, help='Name of task being solved [default_task]', default="default_task")
 
     args = parser.parse_args()
 
