@@ -376,7 +376,6 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
 
     # ****************  Environment Initialization and Paths  ***************
     task_params_str = ''.join(str(e) +', ' for e in task_params)
-    task_params = [float(i) for i in task_params]
     num_tasks = len(task_params)
     envs = [None]*num_tasks
     scalers = [None]*num_tasks
@@ -517,7 +516,9 @@ if __name__ == "__main__":
                         help='Nuber of Episodes to simulate / save videos for [1]', default=1)
 
     # MTL Params
-    parser.add_argument('-tp', '--task_params', type=list, help='List of parameters for each task [None]', default=None)
+    # parser.add_argument('-tp', '--task_params', type=list, help='List of parameters for each task [None]', default=None)
+    parser.add_argument('-tp', '--task_params', nargs='+', type=float, help='List of parameters for each task [None]', default=None)
+
     parser.add_argument('-tn', '--task_name', type=str, help='Name of task being solved [default_task]', default="default_task")
 
     args = parser.parse_args()
