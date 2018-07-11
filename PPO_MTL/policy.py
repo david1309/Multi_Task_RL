@@ -208,14 +208,14 @@ class Policy(object):
         See: https://arxiv.org/pdf/1707.02286.pdf
         """
         if self.clipping_range is not None:
-            print('\n Loss: setting up loss with clipping objective')
+            print('Loss: setting up loss with clipping objective')
             pg_ratio = tf.exp(self.logp - self.logp_old)
             clipped_pg_ratio = tf.clip_by_value(pg_ratio,1-self.clipping_range[0],1+self.clipping_range[1])
             surrogate_loss = tf.minimum(self.advantages_ph * pg_ratio, self.advantages_ph * clipped_pg_ratio)
             self.loss = -tf.reduce_mean(surrogate_loss)
 
         else:
-            print('\n Loss: setting up loss with KL penalty')
+            print('Loss: setting up loss with KL penalty')
             loss1 = -tf.reduce_mean(self.advantages_ph * tf.exp(self.logp - self.logp_old))
             loss2 = tf.reduce_mean(self.beta_ph * self.kl)
             loss3 = self.eta_ph * tf.square(tf.maximum(0.0, self.kl - 2.0 * self.kl_targ))

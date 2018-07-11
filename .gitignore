@@ -10,3 +10,6 @@ PPO_MTL/videos/
 PPO_STL/videos/
 PPO_MTL/videos
 PPO_STL/videos
+
+# Python things
+__pycache__/

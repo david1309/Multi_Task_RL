@@ -81,6 +81,7 @@ class Logger(object):
         self.log_entry = {}
         self.f = open(path, 'w')
         self.writer = None  # DictWriter created with first call to write() method
+        self.logname_file = logname_file
 
     def write(self, display=True):
         """ Write 1 log entry to file, and optionally to stdout
@@ -90,7 +91,7 @@ class Logger(object):
             display: boolean, print to stdout
         """
         if display:
-            self.disp(self.log_entry)
+            self.disp(self.log_entry, self.logname_file)
         if self.write_header:
             fieldnames = [x for x in self.log_entry.keys()]
             self.writer = csv.DictWriter(self.f, fieldnames=fieldnames)
@@ -100,12 +101,11 @@ class Logger(object):
         self.log_entry = {}
 
     @staticmethod
-    def disp(log):
+    def disp(log, logname_file):
         """Print metrics to stdout"""
         log_keys = [k for k in log.keys()]
         log_keys.sort()
-        print('***** MTL: Episode {}, Mean R = {:.1f} *****'.format(log['_Episode'],
-                                                                  log['_MeanReward']))
+        print('***** MTL{}: Episode {}, Mean R = {:.1f} *****'.format(logname_file, log['_Episode'], log['_MeanReward']))
 
         print('{:s}: {:.3g}'.format('PolicyLoss', log['PolicyLoss']))
         print('{:s}: {:.3g}'.format('ValFuncLoss', log['ValFuncLoss']))

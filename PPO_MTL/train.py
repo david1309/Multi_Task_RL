@@ -284,7 +284,7 @@ def log_batch_stats(observes, actions, advantages, disc_sum_rew, logger, episode
 
 
 # Other Useful Methods
-def sim_agent(env, policy, task, scaler, task, num_episodes_sim=1, animate=False, save_video=False, out_dir='./video'):
+def sim_agent(env, policy, task, scaler, num_episodes_sim=1, animate=False, save_video=False, out_dir='./video'):
     """ Simulates trainned agent (Policy) in given environment (env)
 
     Args:
@@ -354,7 +354,7 @@ class GracefulKiller:
 
 # Main Train Execution
 def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, init_pol_logvar, animate,\
-        save_video, save_video_rate, num_episodes_sim, task_params, task_name):
+        save_video, save_rate, num_episodes_sim, task_params, task_name):
     """ Main training loop
 
     Args:
@@ -367,7 +367,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
         hid1_mult: hid1 size for policy and value_f (mutliplier of obs dimension)
         init_pol_logvar: natural log of initial policy variance
         save_video: Boolean determining if videos of the agent will be saved
-        save_video_rate: Int determining how often to save videos for
+        save_rate: Int determining how often to save videos for
         num_episodes_sim: Number of episodes to simulate/save videos for
         task_params: list of parameters to modify each environment for a different task
         task_name: name user assigns to the task being used to modify the environment
@@ -382,7 +382,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
     scalers = [None]*num_tasks
     loggers = [None]*num_tasks
 
-    print ("\n\n---- PATHS: ----")
+    print ("\n\n------ PATHS: ------")
     now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
 
     for task in range(num_tasks):
@@ -398,11 +398,12 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
     aigym_path= os.path.join('./videos', env_name, task_name, task_params_str, now) # videos folders 
     agent_path = os.path.join('agents', env_name , task_name, task_params_str, now) # agent / policy folders
     os.makedirs(agent_path)
-    print("Path for Saved Videos : {}".format(aigym_path)) 
+    print("\nPath for Saved Videos : {}".format(aigym_path)) 
     print("Path for Saved Agents: {}\n".format(agent_path))    
     
 
     # ****************  Initialize Policy, Value Networks and Scaler  ***************
+    print ("\n\n------ NEURAL NETWORKS: ------")
     val_func = NNValueFunction(obs_dim, hid1_mult)
     policy = Policy(obs_dim, act_dim, kl_targ, hid1_mult, init_pol_logvar)
     # run some episodes to initialize scalers 
@@ -411,14 +412,15 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
 
 
     # ****************  Start Training  ***************
+    print ("\n\n------ TRAINNING: ------")
     animate = True if animate == "True" else False
     save_video = True if save_video == "True" else False
-    saver_offset = save_video_rate
+    saver_offset = save_rate
     killer = GracefulKiller()
     episode = 0
     
     # Episode is counted across all tasks i.e. N episodes indicates each tasks has been runned for N times
-    while episode < num_episodes:
+    while episode < num_episodes and not killer.kill_now:
 
         # ****************  Obtain data (train set)  ***************         
         observes_all = [None]*num_tasks
@@ -444,17 +446,17 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
                             loggers[task], episode)
 
         # ****************  Update Policy and Value Networks  ***************
+        print ("*************************************")
         for task in range(num_tasks):
             policy.update(task, observes_all[task], actions_all[task], advantages_all[task], loggers[task])  # update policy
             val_func.fit(task, observes_all[task], disc_sum_rew_all[task], loggers[task])  # update value function
             loggers[task].write(display=True)  # write logger results to file and stdout
 
-
         # ****************  Storing NN and Videos  ***************
         # Store Policy, Value Network and Scaler: every 20% of total episodes or in first/last episode
         if episode >= saver_offset or episode >=num_episodes or episode <=batch_size or killer.kill_now:
         # TODO: Make saving agent/video a method so that it can be called in killer.kill_now 
-            saver_offset += save_video_rate
+            saver_offset += save_rate
             policy.tf_saver.save(policy.sess, "{}/policy_ep_{}".format(agent_path, episode)) # Save Policy Network
             val_func.tf_saver.save(val_func.sess, "{}/val_func_ep_{}".format(agent_path, episode)) # Save Value Network
             pickle.dump(scalers, open("{}/scalers_ep_{}.p".format(agent_path, episode), 'wb'))            
@@ -465,7 +467,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
                 print ("---- Saving Video at Episode {} ----".format(episode))
                 for task in range(num_tasks):
                     _ = sim_agent(envs[task], policy, task, scalers[task], num_episodes_sim, save_video=True, 
-                                    out_dir=aigym_path + "/vid_ep_{}/{}_{}".format(episode, task_name, task))
+                                    out_dir=aigym_path + "/vid_ep_{}/{}_{}".format(episode, task_name, task_params[task]))
                     envs[task].close() # closes window open by monitor wrapper
                     envs[task], _, _ = init_gym(env_name,task_param=task_params[task]) # Recreate env as it was killed
             print("\n\n")
@@ -486,7 +488,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
 
 
 # Example of how to Train Agent:
-# python train.py BipedalWalker-v2 --num_episodes 20000 --batch_size 20 --task_params 123 --task_name Wind --save_video True --save_video_rate 2000
+# python train.py BipedalWalker-v2 --num_episodes 20000 --batch_size 20 --task_params 123 --task_name Wind --save_video True --save_rate 2000
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment '
                                                   'using Proximal Policy Optimizer'))
@@ -508,9 +510,9 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--animate', type=str,  help='Determines if simulation will be rendered [False]',
                         default="False")
     parser.add_argument('-svid', '--save_video', type=str,  
-                        help='Determines if videos will be saved every "save_video_rate" episodes [False]', default="False")
-    parser.add_argument('-svidr', '--save_video_rate', type=int,  
-                        help='Every how many episodes to save video for [1000]', default=1000)
+                        help='Determines if videos will be saved every "save_rate" episodes [False]', default="False")
+    parser.add_argument('-svidr', '--save_rate', type=int,  
+                        help='Every how many episodes to save things (e.g. models, videos) [1000]', default=1000)
     parser.add_argument('-nsim', '--num_episodes_sim', type=int,  
                         help='Nuber of Episodes to simulate / save videos for [1]', default=1)
 
