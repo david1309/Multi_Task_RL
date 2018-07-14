@@ -92,7 +92,11 @@ class NNValueFunction(object):
             # LOSS && OPTIMIZER
             self.loss = tf.reduce_mean(tf.square(self.out - self.val_ph))  # squared loss
             optimizer = tf.train.AdamOptimizer(self.lr)
-            self.train_op = optimizer.minimize(self.loss)
+            self.train_op = optimizer.minimize(self.loss)            
+            tf.summary.scalar('valFunc_loss', self.loss) # Summaries for TensorBoard
+
+            # SUMARRY OPS.
+            self.summary_op = tf.summary.merge_all() # for TensorBoard visualization
 
             # Session and Variables Initializers
             self.var_init = tf.global_variables_initializer()
@@ -150,6 +154,11 @@ class NNValueFunction(object):
         logger.log({'ValFuncLoss': loss,
                     'ExplainedVarNew': exp_var,
                     'ExplainedVarOld': old_exp_var})
+
+        # Update TensorBoard through its op.
+        summary_updated = self.sess.run(self.summary_op, feed_dict)
+
+        return summary_updated
 
     def predict(self, x, task):
         """ Predict method """

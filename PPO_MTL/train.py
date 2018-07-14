@@ -37,6 +37,9 @@ import os
 import argparse
 import signal
 import pickle # to save Scaler
+import tensorflow as tf # need to be imported here to run summary ops
+import sys # used to save command line arguments
+
 
 
 def init_gym(env_name, task_param = None):
@@ -397,9 +400,10 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
     aigym_path= os.path.join('./videos', env_name, task_name, task_params_str, now) # videos folders 
     agent_path = os.path.join('agents', env_name , task_name, task_params_str, now) # agent / policy folders
     os.makedirs(agent_path)
+    with open(agent_path + '/commandline_args.txt', 'w') as f: f.write(' '.join(sys.argv[1:]))  # save commandline command
     print("\nPath for Saved Videos : {}".format(aigym_path)) 
     print("Path for Saved Agents: {}\n".format(agent_path))    
-    
+
 
     # ****************  Initialize Policy, Value Networks and Scaler  ***************
     print ("\n\n------ NEURAL NETWORKS: ------")
@@ -408,6 +412,12 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
+
+    # Tesor Board writer
+    os.makedirs(agent_path + '/tensor_board/policy')
+    os.makedirs(agent_path + '/tensor_board/valFunc')
+    tb_pol_writer = tf.summary.FileWriter(agent_path + '/tensor_board/policy', graph=policy.g)
+    tb_val_writer = tf.summary.FileWriter(agent_path + '/tensor_board/valFunc', graph=val_func.g)
 
 
     # ****************  Start Training  ***************
@@ -447,9 +457,13 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
         # ****************  Update Policy and Value Networks  ***************
         print ("*************************************")
         for task in range(num_tasks):
-            policy.update(task, observes_all[task], actions_all[task], advantages_all[task], loggers[task])  # update policy
-            val_func.fit(task, observes_all[task], disc_sum_rew_all[task], loggers[task])  # update value function
+            pol_summary = policy.update(task, observes_all[task], actions_all[task], advantages_all[task], loggers[task])  # update policy
+            val_summary = val_func.fit(task, observes_all[task], disc_sum_rew_all[task], loggers[task])  # update value function
             loggers[task].write(display=True)  # write logger results to file and stdout
+
+            tb_pol_writer.add_summary(pol_summary, global_step=episode)
+            tb_val_writer.add_summary(val_summary, global_step=episode)
+
 
         # ****************  Storing NN and Videos  ***************
         # Store Policy, Value Network and Scaler: every 20% of total episodes or in first/last episode
@@ -487,10 +501,9 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
 
 
 # Example of how to Train Agent:
-# python train.py BipedalWalker-v2 --num_episodes 20000 --batch_size 20 --task_params 123 --task_name Wind --save_video True --save_rate 2000
+# python train.py BipedalWalker-v2 --num_episodes 20000 --batch_size 20 --task_params 123 --task_name Wind --save_video False --save_rate 2000
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment '
-                                                  'using Proximal Policy Optimizer'))
+    parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment using Proximal Policy Optimizer'))
     parser.add_argument('env_name', type=str, help='OpenAI Gym environment name')
     parser.add_argument('-n', '--num_episodes', type=int, help='Total Number of episodes [1000]',
                         default=1000)
@@ -522,6 +535,7 @@ if __name__ == "__main__":
     parser.add_argument('-tn', '--task_name', type=str, help='Name of task being solved [default_task]', default="default_task")
 
     args = parser.parse_args()
+
 
     # Train Policy and Value Network with parsed parameters
     main(**vars(args))

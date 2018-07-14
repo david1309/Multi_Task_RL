@@ -45,6 +45,7 @@ class Policy(object):
             self._kl_entropy()
             self._sample()
             self._loss_train_op()
+            self.summary_op = tf.summary.merge_all() # for TensorBoard visualization
             self.var_init = tf.global_variables_initializer()
 
             # Need to create the Saver() Op over here (and not in train.py) since
@@ -77,6 +78,11 @@ class Policy(object):
         # to construct old distribution and compute D_KL w/ new distribution.:
         self.old_log_vars_ph = tf.placeholder(tf.float32, (self.act_dim,), 'old_log_vars')
         self.old_means_ph = tf.placeholder(tf.float32, (None, self.act_dim), 'old_means')
+
+        # # Summaries for TensorBoard
+        # for task in range(len(self.beta)):
+        #     tf.summary.scalar('learning_rate_task_{}'.format(task), tf.reduce_mean(self.lr_ph*self.lr_multiplier[task]) )
+        #     tf.summary.scalar('beta_kl_task_{}'.format(task),tf.reduce_mean(self.beta[task]))
 
     def _policy_nn(self):
         """ Policy Network: policy function approximation 
@@ -147,6 +153,16 @@ class Policy(object):
 
         self.log_vars = tf.case({tf.equal(self.task_ph, 0): f1_v, tf.equal(self.task_ph, 1): f2_v, tf.equal(self.task_ph, 2): f3_v},\
                         name= "case_logvars")
+
+        # Summaries for TensorBoard
+        # f1_s = lambda: tf.summary.histogram('mean_histogram_task_1', self.means)
+        # f2_s = lambda: tf.summary.histogram('mean_histogram_task_2', self.means)
+        # f3_s = lambda: tf.summary.histogram('mean_histogram_task_3', self.means)
+
+        # tf.case({tf.equal(self.task_ph, 0): f1_s, tf.equal(self.task_ph, 1): f2_s, tf.equal(self.task_ph, 2): f3_s},\
+        #                      name= "case_summaries")
+
+        
 
 
         print('\nPolicy Network Params -- h1: {}, h2: {}, h3_task: {}, lr: {:.3g}, logvar_speed: {}'
@@ -224,6 +240,9 @@ class Policy(object):
         optimizer = tf.train.AdamOptimizer(self.lr_ph)
         self.train_op = optimizer.minimize(self.loss)
 
+        # Summaries for TensorBoard
+        tf.summary.scalar('policy_loss', self.loss)
+
     def _init_session(self):
         """Launch TensorFlow session and initialize variables"""
         self.sess = tf.Session(graph=self.g)
@@ -264,7 +283,7 @@ class Policy(object):
 
 
         # Train NN
-        for e in range(self.epochs):            
+        for e in range(self.epochs):  
 
             # Run Optimizer
             # TODO: need to improve data pipeline - re-feeding data every epoch
@@ -293,6 +312,11 @@ class Policy(object):
                     'KL': kl,
                     'Beta': self.beta[task],
                     '_lr_multiplier': self.lr_multiplier[task]})
+
+        # Update TensorBoard through its op.
+        summary_updated = self.sess.run(self.summary_op, feed_dict)
+
+        return summary_updated
 
 
     def close_sess(self):
