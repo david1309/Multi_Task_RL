@@ -356,8 +356,8 @@ class GracefulKiller:
 
 
 # Main Train Execution
-def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, init_pol_logvar, animate,\
-        save_video, save_rate, num_episodes_sim, task_params, task_name):
+def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_logvar, animate,\
+        save_video, save_rate, num_episodes_sim, task_params, task_name, dims_core_hid, dims_head_hid, act_func_name):
     """ Main training loop
 
     Args:
@@ -367,7 +367,6 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
         lamda: lambda from Generalized Advantage Estimate
         kl_targ: D_KL target for policy update [D_KL(pi_old || pi_new)
         batch_size: number of episodes per policy training batch
-        hid1_mult: hid1 size for policy and value_f (mutliplier of obs dimension)
         init_pol_logvar: natural log of initial policy variance
         save_video: Boolean determining if videos of the agent will be saved
         save_rate: Int determining how often to save videos for
@@ -407,8 +406,10 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
 
     # ****************  Initialize Policy, Value Networks and Scaler  ***************
     print ("\n\n------ NEURAL NETWORKS: ------")
-    val_func = NNValueFunction(obs_dim, hid1_mult)
-    policy = Policy(obs_dim, act_dim, kl_targ, hid1_mult, init_pol_logvar)
+    val_func = NNValueFunction(obs_dim)
+    dims_core_hid.insert(0, obs_dim) # Modify dims list to have the size of the layer 'n-1' at position '0'
+    dims_head_hid.insert(0, dims_head_hid[-1])
+    policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, act_func_name)
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
@@ -501,7 +502,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, hid1_mult, i
 
 
 # Example of how to Train Agent:
-# python train.py BipedalWalker-v2 --num_episodes 20000 --batch_size 20 --task_params 123 --task_name Wind --save_video False --save_rate 2000
+# python train.py BipedalWalker-v2 --task_params 1 2 3 --task_name Wind --num_episodes 20000 --batch_size 20 --save_video False --save_rate 2000
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment using Proximal Policy Optimizer'))
     parser.add_argument('env_name', type=str, help='OpenAI Gym environment name')
@@ -513,9 +514,6 @@ if __name__ == "__main__":
     parser.add_argument('-k', '--kl_targ', type=float, help='D_KL target value [0.003]', default=0.003)
     parser.add_argument('-b', '--batch_size', type=int,
                         help='Number of episodes used for each training batch [20]', default=20)
-    parser.add_argument('-m', '--hid1_mult', type=int,
-                        help='Size of first hidden layer for value and policy NNs'
-                             '(hidden1 size = hid1_mult*observation dimension) [10]', default=10)
     parser.add_argument('-v', '--init_pol_logvar', type=float,
                         help='Initial policy log-variance [1.0]',
                         default=-1.0)
@@ -529,10 +527,18 @@ if __name__ == "__main__":
                         help='Nuber of Episodes to simulate / save videos for [1]', default=1)
 
     # MTL Params
-    # parser.add_argument('-tp', '--task_params', type=list, help='List of parameters for each task [None]', default=None)
     parser.add_argument('-tp', '--task_params', nargs='+', type=float, help='List of parameters for each task [None]', default=None)
 
     parser.add_argument('-tn', '--task_name', type=str, help='Name of task being solved [default_task]', default="default_task")
+
+    parser.add_argument('-dcore', '--dims_core_hid', nargs='+', type=int, help='List specifying the dimension of each CORE'\
+                        'hidden layer [64, 64]', default=[64,64])
+
+    parser.add_argument('-dhead', '--dims_head_hid', nargs='+', type=int, help='List specifying the dimension of each HEAD'\
+                        'hidden layer [64]', default=[64])
+
+    parser.add_argument('-act', '--act_func_name', type=str, help='Name of activation function to use (tan, relu, lrelu) [tan]',\
+                         default="tan")
 
     args = parser.parse_args()
 

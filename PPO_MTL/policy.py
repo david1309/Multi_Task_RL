@@ -5,23 +5,24 @@ Written by Patrick Coady (pat-coady.github.io)
 """
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.ops.nn_ops import leaky_relu
+from tensorflow.python.ops.nn_ops import relu
 
 
 class Policy(object):
     """ NN-based policy approximation """
-    def __init__(self, obs_dim, act_dim, kl_targ, hid1_mult, policy_logvar, clipping_range=None):
+    def __init__(self, obs_dim, act_dim, kl_targ, policy_logvar, dims_core_hid, dims_head_hid,\
+                 act_func_name = "tan", clipping_range=None):
         """
         Args:
             obs_dim: num observation dimensions (int)
             act_dim: num action dimensions (int)
             kl_targ: target KL divergence ("distace") between pi_old and pi_new
-            hid1_mult: multiplying this by obs_dim the size of the 1st hidden layer is determined
             policy_logvar: natural log of initial policy variance
         """
         self.beta = [1.0]*3  # Beta: gain of D_KL divergance loss term
         self.eta = 50  # Eta: gain of the loss term controling that D_KL doesn't exceed KL_targ (hinge loss)
         self.kl_targ = kl_targ  # Target value for the KL Divergance between pi_old and pi_new
-        self.hid1_mult = hid1_mult
         self.policy_logvar = policy_logvar
         self.epochs = 20 # Trainning Epochs
         self.lr = None
@@ -29,6 +30,15 @@ class Policy(object):
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.clipping_range = clipping_range
+
+        # NN architecture parameters
+        self.dims_core_hid = dims_core_hid
+        self.dims_head_hid = dims_head_hid
+
+        # NN Setup
+        act_dict = {"tan": tf.tanh, "relu": relu, "lrelu": leaky_relu}
+        self.act_func = act_dict[act_func_name]
+
         
         self._build_graph()
         self._init_session()
@@ -79,10 +89,6 @@ class Policy(object):
         self.old_log_vars_ph = tf.placeholder(tf.float32, (self.act_dim,), 'old_log_vars')
         self.old_means_ph = tf.placeholder(tf.float32, (None, self.act_dim), 'old_means')
 
-        # # Summaries for TensorBoard
-        # for task in range(len(self.beta)):
-        #     tf.summary.scalar('learning_rate_task_{}'.format(task), tf.reduce_mean(self.lr_ph*self.lr_multiplier[task]) )
-        #     tf.summary.scalar('beta_kl_task_{}'.format(task),tf.reduce_mean(self.beta[task]))
 
     def _policy_nn(self):
         """ Policy Network: policy function approximation 
@@ -91,82 +97,92 @@ class Policy(object):
         NN only outputs means of distro. based on observation, while (log) variances are computed by an
         additional Trainable variables ("log_vars")
         """
-        # Hidden sizes  
-        hid1_size = 64  
-        hid2_size = 64 
-        hid3_task_size = 64
+        
+        # General NN Setup
+        self.lr = 9e-4 / np.sqrt(self.dims_core_hid[2])  # TODO: 9e-4 MAGIC NUMBER empirically determined
+        num_tasks = 3 # TODO: Expand code to be flexible for multiple task
+        means_case_dict = {}
+        f_list = []
 
-        # heuristic to set learning rate based on NN size (tuned on 'Hopper-v1')
-        self.lr = 9e-4 / np.sqrt(hid2_size)  # 9e-4 MAGIC NUMBER empirically determined
-
-        # Common Hidden Layers
-        h1 = tf.layers.dense(self.obs_ph, hid1_size, tf.tanh,
-                              kernel_initializer=tf.random_normal_initializer(
-                                  stddev=np.sqrt(1 / self.obs_dim)), name="h1")
-        h2 = tf.layers.dense(h1, hid2_size, tf.tanh,
-                              kernel_initializer=tf.random_normal_initializer(
-                                  stddev=np.sqrt(1 / hid1_size)), name="h2")
-
-        # Task specific Hidden Layers ("Heads")
-        h3_t1 = tf.layers.dense(h2, hid3_task_size, tf.tanh,
-                              kernel_initializer=tf.random_normal_initializer(
-                                  stddev=np.sqrt(1 / hid2_size)), name="h3_t1")
-
-        h3_t2 = tf.layers.dense(h2, hid3_task_size, tf.tanh,
-                      kernel_initializer=tf.random_normal_initializer(
-                          stddev=np.sqrt(1 / hid2_size)), name="h3_t2")
-
-        h3_t3 = tf.layers.dense(h2, hid3_task_size, tf.tanh,
-              kernel_initializer=tf.random_normal_initializer(
-                  stddev=np.sqrt(1 / hid2_size)), name="h3_t3")
-
-        # Task specific Output Layer (Linear layer: activation=None --> linear)
-        f1_m = lambda: tf.layers.dense(h3_t1, self.act_dim,
-                                         kernel_initializer=tf.random_normal_initializer(
-                                             stddev=np.sqrt(1 / hid3_task_size)), name="means_t1")
-
-        f2_m = lambda: tf.layers.dense(h3_t2, self.act_dim,
-                                 kernel_initializer=tf.random_normal_initializer(
-                                     stddev=np.sqrt(1 / hid3_task_size)), name="means_t2")
-
-        f3_m = lambda: tf.layers.dense(h3_t3, self.act_dim,
-                         kernel_initializer=tf.random_normal_initializer(
-                             stddev=np.sqrt(1 / hid3_task_size)))#, name="mt3")
-
-        self.means = tf.case({tf.equal(self.task_ph, 0): f1_m, tf.equal(self.task_ph, 1): f2_m, tf.equal(self.task_ph, 2): f3_m},\
-                             name= "case_means")
-
-
-        # Task specific Log Variances Variables
+        # Task specific Log Variances Variables:
         # logvar_speed is used to 'fool' gradient descent into making faster updates to log-variances, 
         #since the model is now predicting 'logvar_speed' variances for each action dimension
-        logvar_speed = (10 * hid2_size) // 48 # MAGIC NUMBER
-
-        # log_vars is a trainnable variable predicting logvar_speed variances (rows) for each action dimension (columns)
-        log_vars_t1 = tf.get_variable('logvars_t1', (logvar_speed, self.act_dim), tf.float32, tf.constant_initializer(0.0))
-        log_vars_t2 = tf.get_variable('logvars_t2', (logvar_speed, self.act_dim), tf.float32, tf.constant_initializer(0.0))
-        log_vars_t3 = tf.get_variable('logvars_t3', (logvar_speed, self.act_dim), tf.float32, tf.constant_initializer(0.0))
-
-        f1_v = lambda: tf.reduce_sum(log_vars_t1, axis=0) + self.policy_logvar
-        f2_v = lambda: tf.reduce_sum(log_vars_t2, axis=0) + self.policy_logvar
-        f3_v = lambda: tf.reduce_sum(log_vars_t3, axis=0) + self.policy_logvar
-
-        self.log_vars = tf.case({tf.equal(self.task_ph, 0): f1_v, tf.equal(self.task_ph, 1): f2_v, tf.equal(self.task_ph, 2): f3_v},\
-                        name= "case_logvars")
-
-        # Summaries for TensorBoard
-        # f1_s = lambda: tf.summary.histogram('mean_histogram_task_1', self.means)
-        # f2_s = lambda: tf.summary.histogram('mean_histogram_task_2', self.means)
-        # f3_s = lambda: tf.summary.histogram('mean_histogram_task_3', self.means)
-
-        # tf.case({tf.equal(self.task_ph, 0): f1_s, tf.equal(self.task_ph, 1): f2_s, tf.equal(self.task_ph, 2): f3_s},\
-        #                      name= "case_summaries")
-
-        
+        logvar_speed = (10 * self.dims_core_hid[2]) // 48 # MAGIC NUMBER
 
 
-        print('\nPolicy Network Params -- h1: {}, h2: {}, h3_task: {}, lr: {:.3g}, logvar_speed: {}'
-              .format(hid1_size, hid2_size, hid3_task_size, self.lr, logvar_speed))
+        with tf.variable_scope('policy_NN'):    
+
+
+            # ****** Distributions Means prediction
+            # Core Block: Common Hidden Layers
+            with tf.variable_scope('Core'):
+                h_core = self.obs_ph
+
+                for hid in range(len(self.dims_core_hid)-1):
+                    h_core = tf.layers.dense(h_core, self.dims_core_hid[hid+1], self.act_func,
+                              kernel_initializer=tf.random_normal_initializer(
+                                  stddev=np.sqrt(1 / self.dims_core_hid[hid])), name="h{}_core".format(hid+1))
+                    # h_core = tf.cond( tf.equal(hid + 1, 2), lambda: tf.Print(h_core,[h_core[0,1]]), lambda: h_core)
+
+            # Heads Blocks: Task specific Hidden Layers 
+            with tf.variable_scope('Heads'):                
+                # means_case_dict = {}
+                # f_list = []
+
+                for head in range(num_tasks):
+                    h_core = tf.Print(h_core,[head], "\nONE_{}".format(head), name="P_ONE")
+                    # with tf.variable_scope('head_{}'.format(head)):
+                    h_head = h_core
+                    h_head = tf.Print(h_head,[head], "\nTWO__{}".format(head), name="P_TWO")
+                    h_core = tf.Print(h_core,[head], "\nTHREE_{}".format(head), name="P_THREE")
+                    for hid in range(len(self.dims_head_hid)-1):
+                        h_head = tf.layers.dense(h_head, self.dims_head_hid[hid+1], self.act_func,
+                                  kernel_initializer=tf.random_normal_initializer(
+                                      stddev=np.sqrt(1 / self.dims_head_hid[hid])), name="h{}_head_{}".format(hid+1, head+1))
+                        # print("\n\n\n\n\n\n")
+                        # print(head)
+                        # print("\n\n\n\n\n\n")
+                        # h_head = tf.cond(tf.logical_and(tf.equal(hid + 1, 1), tf.equal(head, 1)), \
+                        #     lambda: tf.Print(h_head,[h_head[0,1]]), lambda: h_head)
+                        # h_head = tf.Print(h_head,[tf.logical_and(tf.equal(hid + 1, 1), tf.equal(head, 1))])
+                        # h_head = tf.Print(h_head,[tf.equal(hid + 1, 1)], "Hidden")
+                        # h_head = tf.Print(h_head,[tf.equal(head, 0)], "Head_0")
+                        # h_head = tf.Print(h_head,[tf.equal(head, 1)], "Head_1")
+                        # h_head = tf.Print(h_head,[tf.equal(head, 2)], "Head_2")
+                        # h_head = tf.Print(h_head,[head], "HIDDEN", name="P_HIDDEN")
+                         
+
+                    # Dense Layer and Switch Case dictionary to route gradient|s to each task's head
+                    dense = tf.layers.dense(h_head, self.act_dim,
+                            kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
+                            name="dense_head_{}".format(head+1))
+                    
+                    # f = lambda: dense
+                    f_list.append(dense)
+                    # means_case_dict[tf.equal(self.task_ph, head)] = f   
+                means_case_dict =  {tf.equal(self.task_ph, 0): lambda: f_list[0], tf.equal(self.task_ph, 1): lambda: f_list[1], tf.equal(self.task_ph, 2): lambda: f_list[2]}         
+                # Compute final means depending on task
+                self.means = tf.case(means_case_dict, name= "case_means")
+
+
+            # ****** Distributions (log) Variances prediction
+            # log_vars: trainnable variable predicting logvar_speed variances (rows) for each action dimension (columns)
+            with tf.variable_scope('logvars'):
+                logvars_case_dict = {}
+
+                for task in range(num_tasks):                    
+                    log_var = tf.get_variable('logvar_{}'.format(task),\
+                                             (logvar_speed, self.act_dim), tf.float32, tf.constant_initializer(0.0))
+                    f = lambda: tf.reduce_sum(log_var, axis=0) + self.policy_logvar
+
+                    logvars_case_dict[tf.equal(self.task_ph, task)] = f 
+
+                # Compute final logvars depending on task
+                self.log_vars = tf.case(logvars_case_dict, name= "case_logvars")
+
+
+        print('\nPolicy Network Params -- core_hidden: {}, head_hidden: {}, lr: {:.3g}, logvar_speed: {}'
+              .format(self.dims_core_hid[1:], self.dims_head_hid[1:], self.lr, logvar_speed))
 
     def _logprob(self):
         """ Calculate new and old log probabilities of actions based on the log PDF parametrized by NN.
@@ -280,7 +296,6 @@ class Policy(object):
         feed_dict[self.old_log_vars_ph] = old_log_vars_np # Used to compute old logp_old and KL
         feed_dict[self.old_means_ph] = old_means_np # Used to compute old logp_old and KL
         loss, kl, entropy = 0, 0, 0
-
 
         # Train NN
         for e in range(self.epochs):  

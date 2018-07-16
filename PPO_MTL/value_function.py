@@ -11,16 +11,14 @@ from sklearn.utils import shuffle
 
 class NNValueFunction(object):
     """ NN-based state-value function """
-    def __init__(self, obs_dim, hid1_mult):
+    def __init__(self, obs_dim):
         """
         Args:
             obs_dim: number of dimensions in observation vector (int)
-            hid1_mult: size of first hidden layer, multiplier of obs_dim
         """
         self.replay_buffer_x = None
         self.replay_buffer_y = None
         self.obs_dim = obs_dim
-        self.hid1_mult = hid1_mult
         self.epochs = 10
         self.lr = None  # learning rate set in _build_graph()
 
@@ -34,12 +32,13 @@ class NNValueFunction(object):
         # overrides the TF's "default_graph" to define within it operations and tensors
         with self.g.as_default():
 
-            # PLACEHOLDERS
+            # ********************  PLACEHOLDERS  ********************
             self.obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'obs_valfunc')
             self.val_ph = tf.placeholder(tf.float32, (None,), 'val_valfunc')
             self.task_ph = tf.placeholder(tf.int32, (), 'task_valfunc')
 
-            # NN Architecture
+
+            # ********************  NN Architecture  ********************
             hid1_size = 64
             hid2_size = 64
             hid3_task_size = 64
@@ -89,13 +88,15 @@ class NNValueFunction(object):
             print('\nValue Network Params -- h1: {}, h2: {}, h3_task: {}, lr: {:.3g}'
               .format(hid1_size, hid2_size, hid3_task_size, self.lr))
 
-            # LOSS && OPTIMIZER
+
+            # ********************  LOSS && OPTIMIZER  ********************
             self.loss = tf.reduce_mean(tf.square(self.out - self.val_ph))  # squared loss
             optimizer = tf.train.AdamOptimizer(self.lr)
             self.train_op = optimizer.minimize(self.loss)            
             tf.summary.scalar('valFunc_loss', self.loss) # Summaries for TensorBoard
 
-            # SUMARRY OPS.
+
+            # ********************  SUMARRY OPS.  ********************
             self.summary_op = tf.summary.merge_all() # for TensorBoard visualization
 
             # Session and Variables Initializers
