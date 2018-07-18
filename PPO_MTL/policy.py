@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.ops.nn_ops import leaky_relu
 from tensorflow.python.ops.nn_ops import relu
+from collections import OrderedDict
 
 
 class Policy(object):
@@ -90,21 +91,24 @@ class Policy(object):
         self.old_means_ph = tf.placeholder(tf.float32, (None, self.act_dim), 'old_means')
 
     def create_f(self):
+        
+        print("\n\n CREAT_F")
+        # print(self.h_head_count)
+        # print(len(self.dense_list))
+        self.num_call_create_f += 1
+        print(self.num_call_create_f)
 
-        self.h_head_count += 1
+        # if self.num_call_create_f == 1 or self.num_call_create_f == self.num_tasks + 1:
+        #     print("ELSE")
+        #     dense = tf.layers.dense(self.aux, 1, self.act_func) 
+        # else:
+        #     dense = self.dense_list[self.h_head_count] 
+            # self.h_head_count += 1
+        
+        if self.num_call_create_f != 2:        
+            self.which_case +=1
 
-        with tf.variable_scope('head_{}'.format(self.h_head_count+1)):
-            if self.h_head_count <= self.num_tasks:
-                return tf.layers.dense(self.h_head_list[self.h_head_count-1], self.act_dim,
-                                        kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
-                                        name="dense_head_{}".format(self.h_head_count))
-                
-
-            else:
-                return tf.layers.dense(self.h_head_list[self.h_head_count-2], self.act_dim,
-                                        kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
-                                        name="dense_head_{}".format(self.h_head_count+1))           
-
+        return self.dense_list[self.which_case-1]
     
 
     def _policy_nn(self):
@@ -143,10 +147,12 @@ class Policy(object):
             with tf.variable_scope('Heads'):                
                 means_case_dict = []
                 f_list = []
-                dense_list = []
+                self.dense_list = []
                 cond_list = []
-                self.h_head_list = []
                 self.h_head_count = 0
+                self.which_case = 0
+                self.num_call_create_f = 0
+                # self.aux = tf.get_variable("aux_", [1, 2, 3])
 
                 for head in range(self.num_tasks):
                     with tf.variable_scope('head_{}'.format(head+1)):
@@ -157,63 +163,25 @@ class Policy(object):
                                       kernel_initializer=tf.random_normal_initializer(
                                           stddev=np.sqrt(1 / self.dims_head_hid[hid])), name="h{}_head_{}".format(hid+1, head+1))
 
-                            # h_head = tf.cond(tf.logical_and(tf.equal(hid + 1, 1), tf.equal(head, 0)), \
-                            #     lambda: tf.Print(h_head,[h_head[0,1]], "head_0", name="Print_0"), lambda: h_head)
-
-                            # h_head = tf.cond(tf.logical_and(tf.equal(hid + 1, 1), tf.equal(head, 1)), \
-                            #     lambda: tf.Print(h_head,[h_head[0,1]], "head_1", name="Print_1"), lambda: h_head)
-
                             # h_head = tf.cond(tf.logical_and(tf.equal(hid + 1, 1), tf.equal(head, 2)), \
                             #     lambda: tf.Print(h_head,[h_head[0,1]], "head_2", name="Print_2"), lambda: h_head)
                              
 
 
-                        # dense = tf.layers.dense(h_head, self.act_dim,
-                        #         kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
-                        #         name="dense_head_{}".format(head+1)) 
+                        dense = tf.layers.dense(h_head, self.act_dim,
+                                kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
+                                name="dense_head_{}".format(head+1)) 
+                        self.dense_list.append(dense)
 
-                        # # Dense Layer and Switch Case dictionary *argumnets* to route gradients to each task's head
-                        # f_list.append(self.create_f(h_head)  )
-
-                        # f_list.append(  lambda:  tf.layers.dense(h_head, self.act_dim,
-                        #         kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
-                        #         name="dense_head_{}".format(head+1))   )
-
-                        # means_case_dict.append( (tf.equal(self.task_ph, head), lambda: tf.layers.dense(h_head, self.act_dim, kernel_initializer= tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), name="dense_head_{}".format(head+1))  ) )
-                        # print("\n\n")
-                        # print()
-                        # print("\n\n")
-                        # print(means_case_dict)
-                        # dense = tf.layers.dense(h_head, self.act_dim,
-                        #         kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
-                        #         name="dense_head_{}".format(head+1)) 
-
-                        # f_list.append(  lambda: dense )
-                        f_list.append( self.create_f )
-
-                        # cond = tf.equal(self.task_ph, head, name="cond_{}".format(head+1))
-                        # dense_list.append(dense)
-                        self.h_head_list.append(h_head)
                         cond_list.append(tf.equal(self.task_ph, head))
                 
                 # means_case_dict =  {tf.equal(self.task_ph, 0): lambda: dense_list[0], tf.equal(self.task_ph, 1): lambda: dense_list[1], tf.equal(self.task_ph, 2): lambda: dense_list[2]}         
 
-                # print(means_case_dict)
-                # means_case_dict = [ (tf.equal(self.task_ph, i), lambda: dense_list[i]) for i, d in enumerate(dense_list) ]
-                # lst = []
-                # for i, d in enumerate(dense_list):
-                #     lst.append((self.create_f(i), lambda: dense_list[i]))
-                # means_case_dict = lst
+                # means_case_dict =  {tf.equal(self.task_ph, 0): self.create_f, tf.equal(self.task_ph, 1): self.create_f, tf.equal(self.task_ph, 2): self.create_f}         
 
-                # Compute final means depending on task
-                # head = 0
-                # for i in range(len(cond_list)):
-
-                #     f_list.append(lambda: dense_list[i])
-
-                means_case_dict = dict(zip(cond_list, f_list))
-                self.means = tf.case(means_case_dict, name= "case_means")
-
+                # self.dense_list.append(self.dense_list[-1])
+                means_case_dict = OrderedDict(zip(cond_list, [self.create_f for i in range(len(cond_list))]))
+                self.means = tf.case(means_case_dict, name= "case_means")#, default = self.create_f )
 
             # ****** Distributions (log) Variances prediction
             # log_vars: trainnable variable predicting logvar_speed variances (rows) for each action dimension (columns)
