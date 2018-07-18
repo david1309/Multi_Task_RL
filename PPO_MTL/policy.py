@@ -99,6 +99,16 @@ class Policy(object):
         if self.num_call_case_fn != 2: self.which_case +=1
 
         return self.dense_list[self.which_case-1]
+
+    def case_fn_(self):
+        
+        self.num_call_case_fn += 1
+        
+        # TF internal workings make the first function passed to the tf.case be called twice (see internal code of.case, tf.cond)
+        # This "if" forces the first function to be returned for the first 2 __calls__        
+        if self.num_call_case_fn != 2: self.which_case +=1
+
+        return self.log_var_list[self.which_case-1]
     
 
     def _policy_nn(self):
@@ -158,7 +168,9 @@ class Policy(object):
                         dense = tf.layers.dense(h_head, self.act_dim,
                                 kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
                                 name="dense_head_{}".format(head+1)) 
-                        self.dense_list.append(dense) # store it to use it in switch case
+
+                        # store it to use it in switch case
+                        self.dense_list.append(dense) 
 
                     cond_list.append(tf.equal(self.task_ph, head))
 
@@ -172,18 +184,32 @@ class Policy(object):
 
             # ****** Distributions (log) Variances prediction
             # log_vars: trainnable variable predicting logvar_speed variances (rows) for each action dimension (columns)
-            with tf.variable_scope('logvars'):
-                logvars_case_dict = {}
+            with tf.variable_scope('LogVars'):
+                self.log_var_list = []
+                log_var_list = []
+                cond_list = [] 
+                self.which_case = 0 
+                self.num_call_case_fn = 0 
 
-                for task in range(self.num_tasks):                    
-                    log_var = tf.get_variable('logvar_{}'.format(task),\
-                                             (logvar_speed, self.act_dim), tf.float32, tf.constant_initializer(0.0))
-                    f = lambda: tf.reduce_sum(log_var, axis=0) + self.policy_logvar
+                for head in range(self.num_tasks):
+                    with tf.variable_scope('logvar_head_{}'.format(head+1)):                    
+                        log_var_speeds = tf.get_variable('logvar_{}'.format(head+1),\
+                                                 (logvar_speed, self.act_dim), tf.float32, tf.constant_initializer(0.0))
+                        log_var = tf.reduce_sum(log_var_speeds, axis=0) + self.policy_logvar
 
-                    logvars_case_dict[tf.equal(self.task_ph, task)] = f 
+                        self.log_var_list.append (log_var)
+                        log_var_list.append(log_var)
 
-                # Compute final logvars depending on task
-                self.log_vars = tf.case(logvars_case_dict, name= "case_logvars")
+                    cond_list.append(tf.equal(self.task_ph, head))
+
+                # Manually built case: 
+                # logvars_case_dict =  {tf.equal(self.task_ph, 0): lambda: log_var_list[0], tf.equal(self.task_ph, 1): lambda: log_var_list[1], tf.equal(self.task_ph, 2): lambda: log_var_list[2]}         
+
+
+                # Automatically built case
+                logvars_case_dict = OrderedDict(zip(cond_list, [self.case_fn_] * len(cond_list)))
+
+                self.log_vars = tf.case(logvars_case_dict, name= "case_logvars") 
 
 
         print('\nPolicy Network Params -- core_hidden: {}, head_hidden: {}, lr: {:.3g}, logvar_speed: {}'
