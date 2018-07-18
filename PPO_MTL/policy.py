@@ -12,7 +12,7 @@ from collections import OrderedDict
 
 class Policy(object):
     """ NN-based policy approximation """
-    def __init__(self, obs_dim, act_dim, kl_targ, policy_logvar, dims_core_hid, dims_head_hid,\
+    def __init__(self, obs_dim, act_dim, kl_targ, policy_logvar, dims_core_hid, dims_head_hid, num_tasks,\
                  act_func_name = "tan", clipping_range=None):
         """
         Args:
@@ -21,13 +21,13 @@ class Policy(object):
             kl_targ: target KL divergence ("distace") between pi_old and pi_new
             policy_logvar: natural log of initial policy variance
         """
-        self.beta = [1.0]*3  # Beta: gain of D_KL divergance loss term
+        self.beta = [1.0]*num_tasks  # Beta: gain of D_KL divergance loss term
         self.eta = 50  # Eta: gain of the loss term controling that D_KL doesn't exceed KL_targ (hinge loss)
         self.kl_targ = kl_targ  # Target value for the KL Divergance between pi_old and pi_new
         self.policy_logvar = policy_logvar
         self.epochs = 20 # Trainning Epochs
         self.lr = None
-        self.lr_multiplier = [1.0]*3  # dynamically adjust lr based on value of D_KL
+        self.lr_multiplier = [1.0]*num_tasks  # dynamically adjust lr based on value of D_KL
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.clipping_range = clipping_range
@@ -39,7 +39,7 @@ class Policy(object):
         # NN Setup
         act_dict = {"tan": tf.tanh, "relu": relu, "lrelu": leaky_relu}
         self.act_func = act_dict[act_func_name]
-
+        self.num_tasks = num_tasks
         
         self._build_graph()
         self._init_session()
@@ -90,23 +90,13 @@ class Policy(object):
         self.old_log_vars_ph = tf.placeholder(tf.float32, (self.act_dim,), 'old_log_vars')
         self.old_means_ph = tf.placeholder(tf.float32, (None, self.act_dim), 'old_means')
 
-    def create_f(self):
+    def case_fn(self):
         
-        print("\n\n CREAT_F")
-        # print(self.h_head_count)
-        # print(len(self.dense_list))
-        self.num_call_create_f += 1
-        print(self.num_call_create_f)
+        self.num_call_case_fn += 1
 
-        # if self.num_call_create_f == 1 or self.num_call_create_f == self.num_tasks + 1:
-        #     print("ELSE")
-        #     dense = tf.layers.dense(self.aux, 1, self.act_func) 
-        # else:
-        #     dense = self.dense_list[self.h_head_count] 
-            # self.h_head_count += 1
-        
-        if self.num_call_create_f != 2:        
-            self.which_case +=1
+        # TF internal workings make the first function passed to the tf.case be called twice (see internal code of.case, tf.cond)
+        # This "if" forces the first function to be returned for the first 2 __calls__        
+        if self.num_call_case_fn != 2: self.which_case +=1
 
         return self.dense_list[self.which_case-1]
     
@@ -121,7 +111,6 @@ class Policy(object):
         
         # General NN Setup
         self.lr = 9e-4 / np.sqrt(self.dims_core_hid[2])  # TODO: 9e-4 MAGIC NUMBER empirically determined
-        self.num_tasks = 3 # TODO: Expand code to be flexible for multiple task
 
         # Task specific Log Variances Variables:
         # logvar_speed is used to 'fool' gradient descent into making faster updates to log-variances, 
@@ -143,45 +132,43 @@ class Policy(object):
                                   stddev=np.sqrt(1 / self.dims_core_hid[hid])), name="h{}_core".format(hid+1))
                     # h_core = tf.cond( tf.equal(hid + 1, 2), lambda: tf.Print(h_core,[h_core[0,1]]), lambda: h_core)
 
+
             # Heads Blocks: Task specific Hidden Layers 
-            with tf.variable_scope('Heads'):                
-                means_case_dict = []
-                f_list = []
-                self.dense_list = []
-                cond_list = []
-                self.h_head_count = 0
-                self.which_case = 0
-                self.num_call_create_f = 0
-                # self.aux = tf.get_variable("aux_", [1, 2, 3])
+            with tf.variable_scope('Heads'):   
+                self.dense_list = [] # stores the dense layers of each head
+                cond_list = [] # stores the conditional statement (predicate) for the tf.case
+                self.which_case = 0 # keeps track of which function (fn) of tf.case has been called (only used in case_fn)
+                self.num_call_case_fn = 0 # keeps track of how many times case_fn has been called (only used in case_fn)
+
 
                 for head in range(self.num_tasks):
                     with tf.variable_scope('head_{}'.format(head+1)):
                         h_head = h_core
 
+                        # Create all hidden layers of current head
                         for hid in range(len(self.dims_head_hid)-1):
                             h_head = tf.layers.dense(h_head, self.dims_head_hid[hid+1], self.act_func,
                                       kernel_initializer=tf.random_normal_initializer(
                                           stddev=np.sqrt(1 / self.dims_head_hid[hid])), name="h{}_head_{}".format(hid+1, head+1))
 
                             # h_head = tf.cond(tf.logical_and(tf.equal(hid + 1, 1), tf.equal(head, 2)), \
-                            #     lambda: tf.Print(h_head,[h_head[0,1]], "head_2", name="Print_2"), lambda: h_head)
-                             
+                            #     lambda: tf.Print(h_head,[h_head[0,1]], "head_2", name="Print_2"), lambda: h_head)                             
 
-
+                        # Final dense layer for current head
                         dense = tf.layers.dense(h_head, self.act_dim,
                                 kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
                                 name="dense_head_{}".format(head+1)) 
-                        self.dense_list.append(dense)
+                        self.dense_list.append(dense) # store it to use it in switch case
 
-                        cond_list.append(tf.equal(self.task_ph, head))
-                
+                    cond_list.append(tf.equal(self.task_ph, head))
+
+                # Manually built case: 
                 # means_case_dict =  {tf.equal(self.task_ph, 0): lambda: dense_list[0], tf.equal(self.task_ph, 1): lambda: dense_list[1], tf.equal(self.task_ph, 2): lambda: dense_list[2]}         
 
-                # means_case_dict =  {tf.equal(self.task_ph, 0): self.create_f, tf.equal(self.task_ph, 1): self.create_f, tf.equal(self.task_ph, 2): self.create_f}         
+                # Automatically built case
+                means_case_dict = OrderedDict(zip(cond_list, [self.case_fn] * len(cond_list)))
+                self.means = tf.case(means_case_dict, name= "case_means")
 
-                # self.dense_list.append(self.dense_list[-1])
-                means_case_dict = OrderedDict(zip(cond_list, [self.create_f for i in range(len(cond_list))]))
-                self.means = tf.case(means_case_dict, name= "case_means")#, default = self.create_f )
 
             # ****** Distributions (log) Variances prediction
             # log_vars: trainnable variable predicting logvar_speed variances (rows) for each action dimension (columns)

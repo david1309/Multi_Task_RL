@@ -409,7 +409,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
     val_func = NNValueFunction(obs_dim)
     dims_core_hid.insert(0, obs_dim) # Modify dims list to have the size of the layer 'n-1' at position '0'
     dims_head_hid.insert(0, dims_head_hid[-1])
-    policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, act_func_name)
+    policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, num_tasks, act_func_name)
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
@@ -502,7 +502,8 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
 
 
 # Example of how to Train Agent:
-# python train.py BipedalWalker-v2 --task_params 1 2 3 --task_name Wind --num_episodes 20000 --batch_size 20 --save_video False --save_rate 2000
+# python train.py BipedalWalker-v2 --task_params 1 2 3 --task_name Wind --num_episodes 9 --batch_size 3 --save_video False --save_rate 2
+# python train.py BipedalWalker-v2 --task_params 1 2 3 --task_name Wind -dcore 64 32 16 -dhead 128 64 16 --num_episodes 9 --batch_size 3 --save_video False --save_rate 2
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment using Proximal Policy Optimizer'))
     parser.add_argument('env_name', type=str, help='OpenAI Gym environment name')
