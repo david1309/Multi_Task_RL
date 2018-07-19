@@ -1,1 +1,0 @@
-BipedalWalker-v2 --task_params 1 2 3 0 --task_name Wind -dcore 64 32 16 -dhead 128 64 16 --num_episodes 9 --batch_size 3 --save_video False --save_rate 2

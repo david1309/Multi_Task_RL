@@ -1,9 +1,12 @@
 """
-PPO: Proximal Policy Optimization for Multi Task Learning
+PPO: Proximal Policy Optimization for Multi Task Learning done through
+     Hard Parameter Sharing Neural Networks Architecture
 
 Adapted by David Alvarez Charris (david13.ing@gmail.com)
 
-Original code Written by: Patrick Coady (pat-coady.github.io)
+Original code: Patrick Coady (pat-coady.github.io)
+
+----------------------------------------------------------------
 
 PPO uses a loss function and gradient descent to approximate
 Trust Region Policy Optimization (TRPO). See these papers for
@@ -121,8 +124,7 @@ def run_policy(env, policy, scaler, logger, episodes, task, animate=False):
     Args:
         env: ai gym environments 
         policy: policy object with sample() method
-        scaler: scaler object, used to scale/offset each observation dimension
-            to a similar range
+        scaler: scaler object, used to scale/offset each observation dimension to a similar range
         logger: logger object, used to save stats from episodes
         episodes: total episodes to run
         task: int indicating which head (task specific hidden layer) of the policy to use
@@ -412,7 +414,6 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
     val_func = NNValueFunction(obs_dim, dims_core_hid, dims_head_hid, num_tasks, act_func_name)
 
     policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, num_tasks, act_func_name)
-    
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
@@ -461,7 +462,6 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
         # ****************  Update Policy and Value Networks  ***************
         print ("*************************************")
         for task in range(num_tasks):
-            print("\n\n\n Task: {}".format(task))
             pol_summary = policy.update(task, observes_all[task], actions_all[task], advantages_all[task], loggers[task])  # update policy
             val_summary = val_func.fit(task, observes_all[task], disc_sum_rew_all[task], loggers[task])  # update value function
             loggers[task].write(display=True)  # write logger results to file and stdout
@@ -471,7 +471,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
 
 
         # ****************  Storing NN and Videos  ***************
-        # Store Policy, Value Network and Scaler: every 20% of total episodes or in first/last episode
+        # Store Policy, Value Network and Scaler: every 'save_rate' of total episodes or in first/last episode
         if episode >= saver_offset or episode >=num_episodes or episode <=batch_size or killer.kill_now:
         # TODO: Make saving agent/video a method so that it can be called in killer.kill_now 
             saver_offset += save_rate
@@ -512,7 +512,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment using Proximal Policy Optimizer'))
     parser.add_argument('env_name', type=str, help='OpenAI Gym environment name')
     parser.add_argument('-n', '--num_episodes', type=int, help='Total Number of episodes [1000]',
-                        default=1000)
+                        default=10000)
     parser.add_argument('-g', '--gamma', type=float, help='Discount factor [0.995]', default=0.995)
     parser.add_argument('-l', '--lamda', type=float, 
                         help='Lambda for Generalized Advantage Estimation [0.98]', default=0.98)

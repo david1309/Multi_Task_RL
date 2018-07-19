@@ -1,7 +1,10 @@
 """
-NN Policy with KL Divergence Constraint (PPO / TRPO)
+Policy Neural Network trainned with PPO, KL Divergence Constraint
+Multi Task Learning  achieved thorugh Hard Parameter Sharing NN 
 
-Written by Patrick Coady (pat-coady.github.io)
+Adapted by David Alvarez Charris (david13.ing@gmail.com)
+
+Original code: Patrick Coady (pat-coady.github.io)
 """
 import numpy as np
 import tensorflow as tf
@@ -217,8 +220,7 @@ class Policy(object):
 
         # Old Log PDF
         logp_old = -0.5 * tf.reduce_sum(self.old_log_vars_ph)
-        logp_old += -0.5 * tf.reduce_sum(tf.square(self.act_ph - self.old_means_ph) /
-                                         tf.exp(self.old_log_vars_ph), axis=1)
+        logp_old += -0.5 * tf.reduce_sum(tf.square(self.act_ph - self.old_means_ph) / tf.exp(self.old_log_vars_ph), axis=1)
         self.logp_old = logp_old
 
     def _kl_entropy(self):
@@ -251,14 +253,14 @@ class Policy(object):
         See: https://arxiv.org/pdf/1707.02286.pdf
         """
         if self.clipping_range is not None:
-            print('Loss: setting up loss with clipping objective')
+            print('Loss: setting up loss with Clipping Objective')
             pg_ratio = tf.exp(self.logp - self.logp_old)
             clipped_pg_ratio = tf.clip_by_value(pg_ratio,1-self.clipping_range[0],1+self.clipping_range[1])
             surrogate_loss = tf.minimum(self.advantages_ph * pg_ratio, self.advantages_ph * clipped_pg_ratio)
             self.loss = -tf.reduce_mean(surrogate_loss)
 
         else:
-            print('Loss: setting up loss with KL penalty')
+            print('Loss: setting up loss with KL Penalty')
             loss1 = -tf.reduce_mean(self.advantages_ph * tf.exp(self.logp - self.logp_old))
             loss2 = tf.reduce_mean(self.beta_ph * self.kl)
             loss3 = self.eta_ph * tf.square(tf.maximum(0.0, self.kl - 2.0 * self.kl_targ))
@@ -321,11 +323,11 @@ class Policy(object):
             kl = self.sess.run(self.kl, feed_dict)
 
             # Stop Optimizing (early stopping) if Policy update steps are too large ! (D_KL diverges)
-            if kl > self.kl_targ * 4:  break
+            if kl > self.kl_targ * 4:  break # MAGIC NUMBER
 
 
         # Update Learning Rate and KL loss 2 (beta from loss 2)
-        # TODO: too many "magic numbers" in next 8 lines of code, need to clean up
+        # TODO: too many "MAGIC NUMBER" in next 8 lines of code, need to clean up
         if kl > self.kl_targ * 2:  #  Too big steps --> Increase beta to reach D_KL target
             self.beta[task] = np.minimum(35, 1.5 * self.beta[task]) 
             if self.beta[task] > 30 and self.lr_multiplier[task] > 0.1:

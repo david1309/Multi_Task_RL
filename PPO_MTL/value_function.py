@@ -1,7 +1,11 @@
 """
-State-Value Function
+State - Value function Neural Network 
+Architecture is built for Multi Task Learning , where each of the NN "heads" 
+predicts the value function for a task 
 
-Written by Patrick Coady (pat-coady.github.io)
+Adapted by David Alvarez Charris (david13.ing@gmail.com)
+
+Original code: Patrick Coady (pat-coady.github.io)
 """
 
 import tensorflow as tf

@@ -4,7 +4,7 @@ PPO: Proximal Policy Optimization
 Code used to load and test in an environment an already trained
 agent (Policy)
 
-Heavily inspired by Patrick Coady (pat-coady.github.io) code
+Writen by David Alvarez Charris (david13.ing@gmail.com)
 
 """
 import gym

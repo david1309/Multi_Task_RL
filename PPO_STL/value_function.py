@@ -1,7 +1,9 @@
 """
 State-Value Function
 
-Written by Patrick Coady (pat-coady.github.io)
+Adapted by David Alvarez Charris (david13.ing@gmail.com)
+
+Original code: Patrick Coady (pat-coady.github.io)
 """
 
 import tensorflow as tf

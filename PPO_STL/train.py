@@ -3,7 +3,8 @@ PPO: Proximal Policy Optimization for Single Task Learning
 
 Adapted by David Alvarez Charris (david13.ing@gmail.com)
 
-Original code Written by: Patrick Coady (pat-coady.github.io)
+Original code: Patrick Coady (pat-coady.github.io)
+--------------------------------------------------------------
 
 PPO uses a loss function and gradient descent to approximate
 Trust Region Policy Optimization (TRPO). See these papers for
