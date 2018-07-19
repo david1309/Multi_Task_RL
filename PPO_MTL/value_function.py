@@ -11,7 +11,7 @@ from sklearn.utils import shuffle
 
 class NNValueFunction(object):
     """ NN-based state-value function """
-    def __init__(self, obs_dim):
+    def __init__(self, obs_dim, dims_core_hid, dims_head_hid, num_tasks, act_func_name = "tan"):
         """
         Args:
             obs_dim: number of dimensions in observation vector (int)
@@ -22,86 +22,29 @@ class NNValueFunction(object):
         self.epochs = 10
         self.lr = None  # learning rate set in _build_graph()
 
+        # NN architecture parameters
+        self.dims_core_hid = dims_core_hid
+        self.dims_head_hid = dims_head_hid
+
+        # NN Setup
+        act_dict = {"tan": tf.tanh, "relu": relu, "lrelu": leaky_relu}
+        self.act_func = act_dict[act_func_name]
+        self.num_tasks = num_tasks
+
         self._build_graph()
         self._init_session()
 
     def _build_graph(self):
-        """ Construct TensorFlow graph, including loss function, init op and train op """
+        """ Build and initialize TensorFlow graph """
         self.g = tf.Graph()
 
         # overrides the TF's "default_graph" to define within it operations and tensors
         with self.g.as_default():
-
-            # ********************  PLACEHOLDERS  ********************
-            self.obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'obs_valfunc')
-            self.val_ph = tf.placeholder(tf.float32, (None,), 'val_valfunc')
-            self.task_ph = tf.placeholder(tf.int32, (), 'task_valfunc')
-
-
-            # ********************  NN Architecture  ********************
-            hid1_size = 64
-            hid2_size = 64
-            hid3_task_size = 64
-            
-            # heuristic to set learning rate based on NN size (tuned on 'Hopper-v1')
-            self.lr = 1e-2 / np.sqrt(hid2_size)  # 1e-3 empirically determined
-
-
-            # 3 hidden layers with tanh activations
-            out = tf.layers.dense(self.obs_ph, hid1_size, tf.tanh,
-                                  kernel_initializer=tf.random_normal_initializer(
-                                      stddev=np.sqrt(1 / self.obs_dim)), name="h1_valfunc")
-            
-            out = tf.layers.dense(out, hid2_size, tf.tanh,
-                                  kernel_initializer=tf.random_normal_initializer(
-                                      stddev=np.sqrt(1 / hid1_size)), name="h2_valfunc")
-
-
-            # Task specific Hidden Layers ("Heads")
-            h3_t1 = tf.layers.dense(out, hid3_task_size, tf.tanh,
-                                  kernel_initializer=tf.random_normal_initializer(
-                                      stddev=np.sqrt(1 / hid2_size)), name="h3_t1_valfunc")
-
-            h3_t2 = tf.layers.dense(out, hid3_task_size, tf.tanh,
-                          kernel_initializer=tf.random_normal_initializer(
-                              stddev=np.sqrt(1 / hid2_size)), name="h3_t2_valfunc")
-
-            h3_t3 = tf.layers.dense(out, hid3_task_size, tf.tanh,
-                  kernel_initializer=tf.random_normal_initializer(
-                      stddev=np.sqrt(1 / hid2_size)), name="h3_t3_valfunc")
-
-            # Task specific Output Layer (Linear layer: activation=None --> linear)
-            f1_m = lambda: tf.layers.dense(h3_t1, 1, kernel_initializer=tf.random_normal_initializer(
-                                            stddev=np.sqrt(1 / hid3_task_size)), name="means_t1_valfunc")
-
-            f2_m = lambda: tf.layers.dense(h3_t2, 1, kernel_initializer=tf.random_normal_initializer(
-                                            stddev=np.sqrt(1 / hid3_task_size)), name="means_t2_valfunc")
-
-            f3_m = lambda: tf.layers.dense(h3_t3, 1, kernel_initializer=tf.random_normal_initializer(
-                                            stddev=np.sqrt(1 / hid3_task_size)))#, name="means_t3_valfunc")
-
-            out = tf.case({tf.equal(self.task_ph, 0): f1_m, tf.equal(self.task_ph, 1): f2_m, tf.equal(self.task_ph, 2): f3_m},\
-                                 name= "case_means_valfunc")
-
-            self.out = tf.squeeze(out)
-
-            print('\nValue Network Params -- h1: {}, h2: {}, h3_task: {}, lr: {:.3g}'
-              .format(hid1_size, hid2_size, hid3_task_size, self.lr))
-
-
-            # ********************  LOSS && OPTIMIZER  ********************
-            self.loss = tf.reduce_mean(tf.square(self.out - self.val_ph))  # squared loss
-            optimizer = tf.train.AdamOptimizer(self.lr)
-            self.train_op = optimizer.minimize(self.loss)            
-            tf.summary.scalar('valFunc_loss', self.loss) # Summaries for TensorBoard
-
-
-            # ********************  SUMARRY OPS.  ********************
+            self._placeholders() # defines all input placeholders 
+            self._value_nn() # defines architecture of Value Network and its outputs (values)
+            self._loss_train_op()
             self.summary_op = tf.summary.merge_all() # for TensorBoard visualization
-
-            # Session and Variables Initializers
             self.var_init = tf.global_variables_initializer()
-
 
             # Need to create the Saver() Op over here (and not in train.py) since
             # for it to work it requires variables to already exist ... max_to_keep= None
@@ -111,29 +54,125 @@ class NNValueFunction(object):
             # the restorer
             self.tf_saver = tf.train.Saver(max_to_keep=None) # Enables to safe/restore TF graphs
 
-    def fit(self, task, x, y, logger):
-        """ Fit model to current data batch + previous data batch
+    def _placeholders(self):
+        """ Input placeholders"""
 
-        Args:
-            x: features
-            y: target
-            logger: logger to save training loss and % explained variance
+        self.obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'obs_valfunc')
+        self.val_ph = tf.placeholder(tf.float32, (None,), 'val_valfunc')
+        self.task_ph = tf.placeholder(tf.int32, (), 'task_valfunc')
+
+    def case_fn(self):
+        """"
+        Helper function used to return on the "function (fn) " parameter required by the tf.case Op.
+        """        
+        self.num_call_case_fn += 1
+
+        # TF internal workings make the first function passed to the tf.case be called twice (see internal code of.case, tf.cond)
+        # This "if" forces the first function to be returned for the first 2 __calls__        
+        if self.num_call_case_fn != 2: self.which_case +=1
+
+        return self.case_layers_list[self.which_case-1]
+
+    def _value_nn(self):
+        """ Value Network: alue function approximation 
+
+        parametrizes a NN that given a set of observations "s" it predicts what is the value of such state V(s)
         """
-        num_batches = max(x.shape[0] // 256, 1)
-        batch_size = x.shape[0] // num_batches
-        y_hat = self.predict(x, task)  # get NN prediction to check explained variance prior to update
-        old_exp_var = 1 - np.var(y - y_hat)/np.var(y)
+        
+        # General NN Setup
+        self.lr = 1e-2 / np.sqrt(hid2_size) # TODO: 1e-2  MAGIC NUMBER empirically determined
+        self.case_layers_list = [] # stores the last layer of each head which will be passed to the tf.case
+        self.which_case = 0 # keeps track of which function (fn) of tf.case has been called (only used in case_fn)
+        self.num_call_case_fn = 0 # keeps track of how many times case_fn has been called (only used in case_fn)        
+        cond_list = [] # stores the conditional statement (predicate) for the tf.case
+
+
+        with tf.variable_scope('value_NN'):    
+
+
+            # ****** Value prediction
+            # Core Block: Common Hidden Layers
+            with tf.variable_scope('Core'):
+                h_core = self.obs_ph
+
+                for hid in range(len(self.dims_core_hid)-1):
+                    h_core = tf.layers.dense(h_core, self.dims_core_hid[hid+1], self.act_func,
+                              kernel_initializer=tf.random_normal_initializer(
+                                  stddev=np.sqrt(1 / self.dims_core_hid[hid])), name="h{}_core".format(hid+1))
+
+
+            # Heads Blocks: Task specific Hidden Layers 
+            with tf.variable_scope('Heads'):   
+
+                for head in range(self.num_tasks):
+                    with tf.variable_scope('head_{}'.format(head+1)):
+                        h_head = h_core
+
+                        # Create all hidden layers of current head
+                        for hid in range(len(self.dims_head_hid)-1):
+                            h_head = tf.layers.dense(h_head, self.dims_head_hid[hid+1], self.act_func,
+                                      kernel_initializer=tf.random_normal_initializer(
+                                          stddev=np.sqrt(1 / self.dims_head_hid[hid])), name="h{}_head_{}".format(hid+1, head+1))                            
+
+                        # Final dense layer for current head
+                        dense = tf.layers.dense(h_head, 1,
+                                kernel_initializer=tf.random_normal_initializer(stddev=np.sqrt(1/self.dims_head_hid[-1])), 
+                                name="dense_head_{}".format(head+1)) 
+
+                        # store it to use it in switch case
+                        self.case_layers_list.append(dense) 
+
+                    cond_list.append(tf.equal(self.task_ph, head))
+
+                # Automatically built case
+                vals_case_dict = OrderedDict(zip(cond_list, [self.case_fn] * len(cond_list)))
+                vals_cased = tf.case(vals_case_dict, name= "case_values")
+                self.vals_pred = tf.squeeze(vals_cased)
+
+
+        print('\nValue Network Params -- core_hidden: {}, head_hidden: {}, lr: {:.3g}'
+              .format(self.dims_core_hid[1:], self.dims_head_hid[1:], self.lr))
+
+    def _loss_train_op(self):
+        """
+        Defines MSE loss between predicted values (vals_pred) and the ground truth values (disconunted rewards)
+        """
+        self.loss = tf.reduce_mean(tf.square(self.vals_pred - self.val_ph))  # squared loss
+        optimizer = tf.train.AdamOptimizer(self.lr)
+        self.train_op = optimizer.minimize(self.loss)  
+
+        # Summaries for TensorBoard
+        tf.summary.scalar('valFunc_loss', self.loss) # Summaries for TensorBoard
+
+    def fit(self, task, observes, dis_rew, logger):
+        """
+        Update value function based on observations and disccounted rewards (which are the target values)
+
+        Args:            
+            task: interger indicating which task data is being used
+            observes: observations, shape = (N, obs_dim)
+            dis_rew: disccounted sum of rewards (target value), shape = (N, act_dim)
+            logger: Logger object, see utils.py
+        """
+        
+        # Initialize training variables
+        num_batches = max(observes.shape[0] // 256, 1) # TODO: Harcoded max num batches
+        batch_size = observes.shape[0] // num_batches
+
+        # Fin out initial variance
+        vals_pred = self.predict(observes, task)  # get NN prediction to check explained variance prior to update
+        old_exp_var = 1 - np.var(dis_rew - vals_pred)/np.var(dis_rew)
 
         # Set Replay Buffer
         if self.replay_buffer_x is None:
-            x_train, y_train = x, y
+            x_train, y_train = observes, dis_rew
         else:
-            x_train = np.concatenate([x, self.replay_buffer_x])
-            y_train = np.concatenate([y, self.replay_buffer_y])
+            x_train = np.concatenate([observes, self.replay_buffer_x])
+            y_train = np.concatenate([dis_rew, self.replay_buffer_y])
 
         # Store current data batch for next call to fit
-        self.replay_buffer_x = x 
-        self.replay_buffer_y = y
+        self.replay_buffer_x = observes 
+        self.replay_buffer_y = dis_rew
 
         # Train Network
         for e in range(self.epochs):
@@ -148,9 +187,9 @@ class NNValueFunction(object):
 
                 self.sess.run([self.train_op, self.loss], feed_dict=feed_dict)
 
-        y_hat = self.predict(x, task)
-        loss = np.mean(np.square(y_hat - y))         # explained variance after update
-        exp_var = 1 - np.var(y - y_hat) / np.var(y)  # diagnose over-fitting of val func
+        vals_pred = self.predict(observes, task)
+        loss = np.mean(np.square(vals_pred - dis_rew))         # explained variance after update
+        exp_var = 1 - np.var(dis_rew - vals_pred) / np.var(dis_rew)  # diagnose over-fitting of val func
 
         logger.log({'ValFuncLoss': loss,
                     'ExplainedVarNew': exp_var,
@@ -161,12 +200,11 @@ class NNValueFunction(object):
 
         return summary_updated
 
-    def predict(self, x, task):
-        """ Predict method """
-        feed_dict = {self.obs_ph: x, self.task_ph: task}
-        y_hat = self.sess.run(self.out, feed_dict=feed_dict)
+    def predict(self, obs, task):
+        """ Given an observation predict its value  """
+        feed_dict = {self.obs_ph: obs, self.task_ph: task} 
 
-        return np.squeeze(y_hat)
+        return np.squeeze(  self.sess.run(self.vals_pred , feed_dict=feed_dict)  )
 
     def _init_session(self):
         """Launch TensorFlow session and initialize variables"""

@@ -91,26 +91,17 @@ class Policy(object):
         self.old_means_ph = tf.placeholder(tf.float32, (None, self.act_dim), 'old_means')
 
     def case_fn(self):
-        
+        """"
+        Helper function used to return on the "function (fn) " parameter required by the tf.case Op.
+        """        
         self.num_call_case_fn += 1
 
         # TF internal workings make the first function passed to the tf.case be called twice (see internal code of.case, tf.cond)
         # This "if" forces the first function to be returned for the first 2 __calls__        
         if self.num_call_case_fn != 2: self.which_case +=1
 
-        return self.dense_list[self.which_case-1]
-
-    def case_fn_(self):
-        
-        self.num_call_case_fn += 1
-        
-        # TF internal workings make the first function passed to the tf.case be called twice (see internal code of.case, tf.cond)
-        # This "if" forces the first function to be returned for the first 2 __calls__        
-        if self.num_call_case_fn != 2: self.which_case +=1
-
-        return self.log_var_list[self.which_case-1]
+        return self.case_layers_list[self.which_case-1]
     
-
     def _policy_nn(self):
         """ Policy Network: policy function approximation 
 
@@ -121,6 +112,10 @@ class Policy(object):
         
         # General NN Setup
         self.lr = 9e-4 / np.sqrt(self.dims_core_hid[2])  # TODO: 9e-4 MAGIC NUMBER empirically determined
+        self.case_layers_list = [] # stores the last layer of each head which will be passed to the tf.case
+        self.which_case = 0 # keeps track of which function (fn) of tf.case has been called (only used in case_fn)
+        self.num_call_case_fn = 0 # keeps track of how many times case_fn has been called (only used in case_fn)        
+        cond_list = [] # stores the conditional statement (predicate) for the tf.case
 
         # Task specific Log Variances Variables:
         # logvar_speed is used to 'fool' gradient descent into making faster updates to log-variances, 
@@ -145,11 +140,6 @@ class Policy(object):
 
             # Heads Blocks: Task specific Hidden Layers 
             with tf.variable_scope('Heads'):   
-                self.dense_list = [] # stores the dense layers of each head
-                cond_list = [] # stores the conditional statement (predicate) for the tf.case
-                self.which_case = 0 # keeps track of which function (fn) of tf.case has been called (only used in case_fn)
-                self.num_call_case_fn = 0 # keeps track of how many times case_fn has been called (only used in case_fn)
-
 
                 for head in range(self.num_tasks):
                     with tf.variable_scope('head_{}'.format(head+1)):
@@ -170,12 +160,12 @@ class Policy(object):
                                 name="dense_head_{}".format(head+1)) 
 
                         # store it to use it in switch case
-                        self.dense_list.append(dense) 
+                        self.case_layers_list.append(dense) 
 
                     cond_list.append(tf.equal(self.task_ph, head))
 
                 # Manually built case: 
-                # means_case_dict =  {tf.equal(self.task_ph, 0): lambda: dense_list[0], tf.equal(self.task_ph, 1): lambda: dense_list[1], tf.equal(self.task_ph, 2): lambda: dense_list[2]}         
+                # means_case_dict =  {tf.equal(self.task_ph, 0): lambda: case_layers_list[0], tf.equal(self.task_ph, 1): lambda: case_layers_list[1], tf.equal(self.task_ph, 2): lambda: case_layers_list[2]}         
 
                 # Automatically built case
                 means_case_dict = OrderedDict(zip(cond_list, [self.case_fn] * len(cond_list)))
@@ -185,11 +175,11 @@ class Policy(object):
             # ****** Distributions (log) Variances prediction
             # log_vars: trainnable variable predicting logvar_speed variances (rows) for each action dimension (columns)
             with tf.variable_scope('LogVars'):
-                self.log_var_list = []
-                log_var_list = []
-                cond_list = [] 
-                self.which_case = 0 
-                self.num_call_case_fn = 0 
+
+                self.case_layers_list = [] # reset list
+                self.which_case = 0 # reset tracker of cases
+                self.num_call_case_fn = 0 # reset tracker of number of calls
+                cond_list = []  # reset (even though it can be recicled from the Heads cond_list)
 
                 for head in range(self.num_tasks):
                     with tf.variable_scope('logvar_head_{}'.format(head+1)):                    
@@ -197,18 +187,15 @@ class Policy(object):
                                                  (logvar_speed, self.act_dim), tf.float32, tf.constant_initializer(0.0))
                         log_var = tf.reduce_sum(log_var_speeds, axis=0) + self.policy_logvar
 
-                        self.log_var_list.append (log_var)
-                        log_var_list.append(log_var)
+                        self.case_layers_list.append (log_var)
 
                     cond_list.append(tf.equal(self.task_ph, head))
 
                 # Manually built case: 
-                # logvars_case_dict =  {tf.equal(self.task_ph, 0): lambda: log_var_list[0], tf.equal(self.task_ph, 1): lambda: log_var_list[1], tf.equal(self.task_ph, 2): lambda: log_var_list[2]}         
-
+                # logvars_case_dict =  {tf.equal(self.task_ph, 0): lambda: case_layers_list[0], tf.equal(self.task_ph, 1): lambda: case_layers_list[1], tf.equal(self.task_ph, 2): lambda: case_layers_list[2]}         
 
                 # Automatically built case
-                logvars_case_dict = OrderedDict(zip(cond_list, [self.case_fn_] * len(cond_list)))
-
+                logvars_case_dict = OrderedDict(zip(cond_list, [self.case_fn] * len(cond_list)))
                 self.log_vars = tf.case(logvars_case_dict, name= "case_logvars") 
 
 
@@ -254,13 +241,6 @@ class Policy(object):
         self.entropy = 0.5 * (self.act_dim * (np.log(2 * np.pi) + 1) +
                               tf.reduce_sum(self.log_vars))
 
-    def _sample(self):
-        """ Sample from Multivariate Gaussian (parametrized by NN) based on Standard Multivar Normal : 
-        action ~ N(actions; means, var) = means + sqrt(var)*N(0,1) """
-
-        # self.sampled_act = (self.means + tf.exp(self.log_vars / 2.0) * tf.random_normal(shape=(self.act_dim,)))
-        self.sampled_act = self.means+tf.sqrt(tf.exp(self.log_vars))*tf.random_normal(shape=(self.act_dim,))
-
     def _loss_train_op(self):
         """
         Three loss terms:
@@ -290,10 +270,12 @@ class Policy(object):
         # Summaries for TensorBoard
         tf.summary.scalar('policy_loss', self.loss)
 
-    def _init_session(self):
-        """Launch TensorFlow session and initialize variables"""
-        self.sess = tf.Session(graph=self.g)
-        self.sess.run(self.var_init)# var_init def. in _build_graph as global_variables_initializer
+    def _sample(self):
+        """ Sample from Multivariate Gaussian (parametrized by NN) based on Standard Multivar Normal : 
+        action ~ N(actions; means, var) = means + sqrt(var)*N(0,1) """
+
+        # self.sampled_act = (self.means + tf.exp(self.log_vars / 2.0) * tf.random_normal(shape=(self.act_dim,)))
+        self.sampled_act = self.means + tf.sqrt(tf.exp(self.log_vars))*tf.random_normal(shape=(self.act_dim,))
 
     def sample(self, obs, task):
         """Draw action sample from policy distribution given observation"""
@@ -306,7 +288,7 @@ class Policy(object):
         """ Update policy based on observations, actions and advantages
 
         Args:            
-            task: interget indicating which task data is being used
+            task: interger indicating which task data is being used
             observes: observations, shape = (N, obs_dim)
             actions: actions, shape = (N, act_dim)
             advantages: advantages, shape = (N,)
@@ -326,7 +308,7 @@ class Policy(object):
         old_means_np, old_log_vars_np = self.sess.run([self.means, self.log_vars], feed_dict)
         feed_dict[self.old_log_vars_ph] = old_log_vars_np # Used to compute old logp_old and KL
         feed_dict[self.old_means_ph] = old_means_np # Used to compute old logp_old and KL
-        loss, kl, entropy = 0, 0, 0
+        # loss, kl, entropy = 0, 0, 0
 
         # Train NN
         for e in range(self.epochs):  
@@ -335,11 +317,12 @@ class Policy(object):
             # TODO: need to improve data pipeline - re-feeding data every epoch
             self.sess.run(self.train_op, feed_dict)
 
-            # Once Optimized, compute loss, KL Divergance and Entropy
-            loss, kl, entropy = self.sess.run([self.loss, self.kl, self.entropy], feed_dict)
+            # Once Optimized, compute KL Divergance
+            kl = self.sess.run([self.kl], feed_dict)
 
             # Stop Optimizing (early stopping) if Policy update steps are too large ! (D_KL diverges)
             if kl > self.kl_targ * 4:  break
+
 
         # Update Learning Rate and KL loss 2 (beta from loss 2)
         # TODO: too many "magic numbers" in next 8 lines of code, need to clean up
@@ -353,6 +336,8 @@ class Policy(object):
             if self.beta[task] < (1 / 30) and self.lr_multiplier[task] < 10:
                 self.lr_multiplier[task] *= 1.5
 
+        # Logging
+        loss, entropy = self.sess.run([self.loss, self.entropy], feed_dict)
         logger.log({'PolicyLoss': loss,
                     'PolicyEntropy': entropy,
                     'KL': kl,
@@ -364,6 +349,10 @@ class Policy(object):
 
         return summary_updated
 
+    def _init_session(self):
+        """Launch TensorFlow session and initialize variables"""
+        self.sess = tf.Session(graph=self.g)
+        self.sess.run(self.var_init)# var_init def. in _build_graph as global_variables_initializer
 
     def close_sess(self):
         """ Close TensorFlow session """
