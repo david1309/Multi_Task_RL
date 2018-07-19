@@ -318,7 +318,7 @@ class Policy(object):
             self.sess.run(self.train_op, feed_dict)
 
             # Once Optimized, compute KL Divergance
-            kl = self.sess.run([self.kl], feed_dict)
+            kl = self.sess.run(self.kl, feed_dict)
 
             # Stop Optimizing (early stopping) if Policy update steps are too large ! (D_KL diverges)
             if kl > self.kl_targ * 4:  break

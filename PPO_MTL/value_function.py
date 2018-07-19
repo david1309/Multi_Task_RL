@@ -6,6 +6,9 @@ Written by Patrick Coady (pat-coady.github.io)
 
 import tensorflow as tf
 import numpy as np
+from tensorflow.python.ops.nn_ops import leaky_relu
+from tensorflow.python.ops.nn_ops import relu
+from collections import OrderedDict
 from sklearn.utils import shuffle
 
 
@@ -16,8 +19,8 @@ class NNValueFunction(object):
         Args:
             obs_dim: number of dimensions in observation vector (int)
         """
-        self.replay_buffer_x = None
-        self.replay_buffer_y = None
+        self.replay_buffer_x = [None]*num_tasks
+        self.replay_buffer_y = [None]*num_tasks
         self.obs_dim = obs_dim
         self.epochs = 10
         self.lr = None  # learning rate set in _build_graph()
@@ -58,7 +61,7 @@ class NNValueFunction(object):
         """ Input placeholders"""
 
         self.obs_ph = tf.placeholder(tf.float32, (None, self.obs_dim), 'obs_valfunc')
-        self.val_ph = tf.placeholder(tf.float32, (None,), 'val_valfunc')
+        self.dis_rew_ph = tf.placeholder(tf.float32, (None,), 'dis_rew_valfunc')
         self.task_ph = tf.placeholder(tf.int32, (), 'task_valfunc')
 
     def case_fn(self):
@@ -80,7 +83,7 @@ class NNValueFunction(object):
         """
         
         # General NN Setup
-        self.lr = 1e-2 / np.sqrt(hid2_size) # TODO: 1e-2  MAGIC NUMBER empirically determined
+        self.lr = 1e-2 / np.sqrt(self.dims_core_hid[2]) # TODO: 1e-2  MAGIC NUMBER empirically determined
         self.case_layers_list = [] # stores the last layer of each head which will be passed to the tf.case
         self.which_case = 0 # keeps track of which function (fn) of tf.case has been called (only used in case_fn)
         self.num_call_case_fn = 0 # keeps track of how many times case_fn has been called (only used in case_fn)        
@@ -137,7 +140,7 @@ class NNValueFunction(object):
         """
         Defines MSE loss between predicted values (vals_pred) and the ground truth values (disconunted rewards)
         """
-        self.loss = tf.reduce_mean(tf.square(self.vals_pred - self.val_ph))  # squared loss
+        self.loss = tf.reduce_mean(tf.square(self.vals_pred - self.dis_rew_ph))  # squared loss
         optimizer = tf.train.AdamOptimizer(self.lr)
         self.train_op = optimizer.minimize(self.loss)  
 
@@ -164,31 +167,35 @@ class NNValueFunction(object):
         old_exp_var = 1 - np.var(dis_rew - vals_pred)/np.var(dis_rew)
 
         # Set Replay Buffer
-        if self.replay_buffer_x is None:
+        if self.replay_buffer_x[task] is None:
             x_train, y_train = observes, dis_rew
         else:
-            x_train = np.concatenate([observes, self.replay_buffer_x])
-            y_train = np.concatenate([dis_rew, self.replay_buffer_y])
+            x_train = np.concatenate([observes, self.replay_buffer_x[task]])
+            y_train = np.concatenate([dis_rew, self.replay_buffer_y[task]])
 
-        # Store current data batch for next call to fit
-        self.replay_buffer_x = observes 
-        self.replay_buffer_y = dis_rew
+        # Store current data batch for next call to fit (buffers)
+        self.replay_buffer_x[task] = observes 
+        self.replay_buffer_y[task] = dis_rew
 
         # Train Network
         for e in range(self.epochs):
-            x_train, y_train = shuffle(x_train, y_train) # Remove wrong correlations assumtions
-            for j in range(num_batches):
+            x_train, y_train = shuffle(x_train, y_train) # Remove wrong correlations assumptions
+
+            for j in range(num_batches):                
+                # Configure Feed Dict
                 start = j * batch_size
                 end = (j + 1) * batch_size
                 feed_dict = {self.obs_ph: x_train[start:end, :],
-                             self.val_ph: y_train[start:end],
+                             self.dis_rew_ph: y_train[start:end],
                              self.task_ph: task
                              }
 
-                self.sess.run([self.train_op, self.loss], feed_dict=feed_dict)
+                # Run Optimizer
+                self.sess.run(self.train_op, feed_dict=feed_dict)
 
+        # Logging: once Optimized, compute new MSE 
         vals_pred = self.predict(observes, task)
-        loss = np.mean(np.square(vals_pred - dis_rew))         # explained variance after update
+        loss = np.mean(np.square(vals_pred - dis_rew)) # explained variance after update
         exp_var = 1 - np.var(dis_rew - vals_pred) / np.var(dis_rew)  # diagnose over-fitting of val func
 
         logger.log({'ValFuncLoss': loss,

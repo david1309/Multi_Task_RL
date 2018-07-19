@@ -406,10 +406,13 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
 
     # ****************  Initialize Policy, Value Networks and Scaler  ***************
     print ("\n\n------ NEURAL NETWORKS: ------")
-    val_func = NNValueFunction(obs_dim)
     dims_core_hid.insert(0, obs_dim) # Modify dims list to have the size of the layer 'n-1' at position '0'
     dims_head_hid.insert(0, dims_head_hid[-1])
+    
+    val_func = NNValueFunction(obs_dim, dims_core_hid, dims_head_hid, num_tasks, act_func_name)
+
     policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, num_tasks, act_func_name)
+    
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
@@ -458,6 +461,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
         # ****************  Update Policy and Value Networks  ***************
         print ("*************************************")
         for task in range(num_tasks):
+            print("\n\n\n Task: {}".format(task))
             pol_summary = policy.update(task, observes_all[task], actions_all[task], advantages_all[task], loggers[task])  # update policy
             val_summary = val_func.fit(task, observes_all[task], disc_sum_rew_all[task], loggers[task])  # update value function
             loggers[task].write(display=True)  # write logger results to file and stdout
