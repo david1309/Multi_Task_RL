@@ -35,7 +35,7 @@ from policy import Policy
 from value_function import NNValueFunction
 import scipy.signal
 from utils import Logger, Scaler
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import argparse
 import signal
@@ -386,7 +386,8 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
     loggers = [None]*num_tasks
 
     print ("\n\n------ PATHS: ------")
-    now = datetime.utcnow().strftime("%b-%d_%H:%M:%S")  # create unique directories
+    start_time = datetime.now()
+    now = start_time.strftime("%b-%d_%H:%M:%S") # create unique directories
 
     for task in range(num_tasks):
         # Create task specific environment 
@@ -503,6 +504,15 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
         loggers[task].close()
     policy.close_sess()
     val_func.close_sess()
+
+    # Save elapsed time
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    timedelta(0, 8, 562000)
+    delta_time = divmod(elapsed_time.days * 86400 + elapsed_time.seconds, 60)
+    delta_str = "Elapsed Time: {} min {} seconds".format(delta_time[0], delta_time[1])
+    # save elapsed time, 'a' to append not overwrite
+    with open(agent_path + '/commandline_args.txt', 'a') as f: f.write('\n\n' + delta_str)  
 
 
 # Example of how to Train Agent:
