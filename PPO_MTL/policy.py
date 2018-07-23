@@ -202,8 +202,8 @@ class Policy(object):
                 self.log_vars = tf.case(logvars_case_dict, name= "case_logvars") 
 
 
-        print('\nPolicy Network Params -- core_hidden: {}, head_hidden: {}, lr: {:.3g}, logvar_speed: {}'
-              .format(self.dims_core_hid[1:], self.dims_head_hid[1:], self.lr, logvar_speed))
+        print('\nPolicy Network Params -- core_hidden: {}, head_hidden: {}, act.func: {}, lr: {:.3g}, logvar_speed: {}'
+              .format(self.dims_core_hid[1:], self.dims_head_hid[1:], self.act_func.__name__, self.lr, logvar_speed))
 
     def _logprob(self):
         """ Calculate new and old log probabilities of actions based on the log PDF parametrized by NN.
@@ -253,14 +253,15 @@ class Policy(object):
         See: https://arxiv.org/pdf/1707.02286.pdf
         """
         if self.clipping_range is not None:
-            print('Loss: setting up loss with Clipping Objective')
+            print('Loss: setting up loss with Clipping Objective ({})'.format(self.clipping_range))
             pg_ratio = tf.exp(self.logp - self.logp_old)
-            clipped_pg_ratio = tf.clip_by_value(pg_ratio,1-self.clipping_range[0],1+self.clipping_range[1])
+            # TODO: Avoid hardcoding the clipping_range
+            clipped_pg_ratio = tf.clip_by_value(pg_ratio, 0, self.clipping_range)#1-self.clipping_range[0],1+self.clipping_range[1])
             surrogate_loss = tf.minimum(self.advantages_ph * pg_ratio, self.advantages_ph * clipped_pg_ratio)
             self.loss = -tf.reduce_mean(surrogate_loss)
 
         else:
-            print('Loss: setting up loss with KL Penalty')
+            print('Loss: setting up loss with KL Penalty ({})'.format(self.kl_targ))
             loss1 = -tf.reduce_mean(self.advantages_ph * tf.exp(self.logp - self.logp_old))
             loss2 = tf.reduce_mean(self.beta_ph * self.kl)
             loss3 = self.eta_ph * tf.square(tf.maximum(0.0, self.kl - 2.0 * self.kl_targ))

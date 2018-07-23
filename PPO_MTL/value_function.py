@@ -137,8 +137,8 @@ class NNValueFunction(object):
                 self.vals_pred = tf.squeeze(vals_cased)
 
 
-        print('\nValue Network Params -- core_hidden: {}, head_hidden: {}, lr: {:.3g}'
-              .format(self.dims_core_hid[1:], self.dims_head_hid[1:], self.lr))
+        print('\nValue Network Params -- core_hidden: {}, head_hidden: {}, act.func: {}, lr: {:.3g}'
+              .format(self.dims_core_hid[1:], self.dims_head_hid[1:], self.act_func.__name__, self.lr))
 
     def _loss_train_op(self):
         """
