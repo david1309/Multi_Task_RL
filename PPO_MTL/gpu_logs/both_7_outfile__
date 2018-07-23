@@ -1,0 +1,19 @@
+
+
+------ PATHS: ------
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+Path for Saved Logs: log-files/BipedalWalker-v2/Wind/0.0, /Jul-23_03:11:50/log_Wind_0.0.csv
+
+Path for Saved Videos : ./videos/BipedalWalker-v2/Wind/0.0, /Jul-23_03:11:50
+Path for Saved Agents: agents/BipedalWalker-v2/Wind/0.0, /Jul-23_03:11:50
+
+
+
+------ NEURAL NETWORKS: ------
+
+Value Network Params -- core_hidden: [64, 64, 64, 64], head_hidden: [64, 64, 64], act.func: tanh, lr: 0.00125
+
+Policy Network Params -- core_hidden: [64, 64, 64, 64], head_hidden: [64, 64, 64], act.func: relu, lr: 0.000112, logvar_speed: 13
+Loss: setting up loss with Clipping Objective (0.2)
+Loss: setting up loss with KL Penalty (0.01)

@@ -3,8 +3,8 @@
 #SBATCH -n 1	  # tasks requested
 #SBATCH --gres=gpu:1
 #SBATCH --mem=16000  # memory in Mb
-#SBATCH -o sample_experiment_outfile__  # send stdout to sample_experiment_outfile
-#SBATCH -e sample_experiment_errfile__  # send stderr to sample_experiment_errfile
+#SBATCH -o gpu_logs/both_outfile__  # send stdout to sample_experiment_outfile
+#SBATCH -e gpu_logs/both_errfile__  # send stderr to sample_experiment_errfile
 #SBATCH -t 8:00:00  # time requested in hour:minute:seconds
 
 export CUDA_HOME=/opt/cuda-8.0.44
@@ -31,5 +31,5 @@ export TMP=/disk/scratch/${STUDENT_ID}/
 
 source /home/${STUDENT_ID}/miniconda3/bin/activate mtrl
 
-python train.py BipedalWalker-v2 --task_params 0 --task_name Wind -dcore 64 64 -dhead 64 --pol_loss_type kl --num_episodes 20000 --batch_size 20 --save_rate 500
+python train.py BipedalWalker-v2 --task_params 0 --task_name Wind -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 20000 --batch_size 20 --save_rate 500
 
