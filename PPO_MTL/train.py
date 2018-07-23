@@ -412,9 +412,9 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, batch_size, init_pol_log
     dims_core_hid.insert(0, obs_dim) # Modify dims list to have the size of the layer 'n-1' at position '0'
     dims_head_hid.insert(0, dims_head_hid[-1])
     
-    val_func = NNValueFunction(obs_dim, dims_core_hid, dims_head_hid, num_tasks, act_func_name)
+    val_func = NNValueFunction(obs_dim, dims_core_hid, dims_head_hid, num_tasks)#, act_func_name)
 
-    policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, num_tasks, act_func_name)
+    policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, num_tasks)#, act_func_name)
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  

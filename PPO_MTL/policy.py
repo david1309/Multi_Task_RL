@@ -16,7 +16,7 @@ from collections import OrderedDict
 class Policy(object):
     """ NN-based policy approximation """
     def __init__(self, obs_dim, act_dim, kl_targ, policy_logvar, dims_core_hid, dims_head_hid, num_tasks,\
-                 act_func_name = "tan", clipping_range=None):
+                 act_func_name = "relu", clipping_range=None):
         """
         Args:
             obs_dim: num observation dimensions (int)

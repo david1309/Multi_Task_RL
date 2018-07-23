@@ -1,0 +1,167 @@
+
+
+------ PATHS: ------
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+Path for Saved Logs: log-files/BipedalWalker-v2/Wind/1.0, 2.0, 3.0, /Jul-23_00:45:31/log_Wind_1.0.csv
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+Path for Saved Logs: log-files/BipedalWalker-v2/Wind/1.0, 2.0, 3.0, /Jul-23_00:45:31/log_Wind_2.0.csv
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+[33mWARN: gym.spaces.Box autodetected dtype as <class 'numpy.float32'>. Please provide explicit dtype.[0m
+Path for Saved Logs: log-files/BipedalWalker-v2/Wind/1.0, 2.0, 3.0, /Jul-23_00:45:31/log_Wind_3.0.csv
+
+Path for Saved Videos : ./videos/BipedalWalker-v2/Wind/1.0, 2.0, 3.0, /Jul-23_00:45:31
+Path for Saved Agents: agents/BipedalWalker-v2/Wind/1.0, 2.0, 3.0, /Jul-23_00:45:31
+
+
+
+------ NEURAL NETWORKS: ------
+
+Value Network Params -- core_hidden: [64, 32, 16], head_hidden: [128, 64, 16], lr: 0.00177
+
+Policy Network Params -- core_hidden: [64, 32, 16], head_hidden: [128, 64, 16], lr: 0.000159, logvar_speed: 6
+Loss: setting up loss with KL Penalty
+
+
+------ TRAINNING: ------
+*************************************
+***** MTL_Wind_1.0: Episode 3, Mean R = -104.9 *****
+PolicyLoss: -0.0249
+ValFuncLoss: 0.00111
+
+
+***** MTL_Wind_2.0: Episode 3, Mean R = -128.4 *****
+PolicyLoss: -0.0293
+ValFuncLoss: 0.0105
+
+
+***** MTL_Wind_3.0: Episode 3, Mean R = -128.1 *****
+PolicyLoss: -0.0418
+ValFuncLoss: 0.0162
+
+
+---- Saved Agent at Episode 3 ----
+
+
+
+*************************************
+***** MTL_Wind_1.0: Episode 6, Mean R = -91.4 *****
+PolicyLoss: -0.0297
+ValFuncLoss: 0.000666
+
+
+***** MTL_Wind_2.0: Episode 6, Mean R = -124.5 *****
+PolicyLoss: -0.0261
+ValFuncLoss: 0.0164
+
+
+***** MTL_Wind_3.0: Episode 6, Mean R = -115.0 *****
+PolicyLoss: -0.0655
+ValFuncLoss: 0.00309
+
+
+---- Saved Agent at Episode 6 ----
+
+
+
+*************************************
+***** MTL_Wind_1.0: Episode 9, Mean R = -88.8 *****
+PolicyLoss: -0.0184
+ValFuncLoss: 0.000493
+
+
+***** MTL_Wind_2.0: Episode 9, Mean R = -114.9 *****
+PolicyLoss: -0.0347
+ValFuncLoss: 0.00548
+
+
+***** MTL_Wind_3.0: Episode 9, Mean R = -120.4 *****
+PolicyLoss: -0.0314
+ValFuncLoss: 0.00138
+
+
+---- Saved Agent at Episode 9 ----
+
+
+
+*************************************
+***** MTL_Wind_1.0: Episode 12, Mean R = -105.2 *****
+PolicyLoss: -0.0172
+ValFuncLoss: 0.00161
+
+
+***** MTL_Wind_2.0: Episode 12, Mean R = -116.8 *****
+PolicyLoss: -0.0248
+ValFuncLoss: 0.00598
+
+
+***** MTL_Wind_3.0: Episode 12, Mean R = -124.3 *****
+PolicyLoss: -0.0293
+ValFuncLoss: 0.000188
+
+
+---- Saved Agent at Episode 12 ----
+
+
+
+*************************************
+***** MTL_Wind_1.0: Episode 15, Mean R = -85.2 *****
+PolicyLoss: -0.00337
+ValFuncLoss: 0.000566
+
+
+***** MTL_Wind_2.0: Episode 15, Mean R = -117.1 *****
+PolicyLoss: -0.0356
+ValFuncLoss: 0.00669
+
+
+***** MTL_Wind_3.0: Episode 15, Mean R = -118.9 *****
+PolicyLoss: -0.0374
+ValFuncLoss: 0.00879
+
+
+---- Saved Agent at Episode 15 ----
+
+
+
+*************************************
+***** MTL_Wind_1.0: Episode 18, Mean R = -111.4 *****
+PolicyLoss: -0.00844
+ValFuncLoss: 0.0034
+
+
+***** MTL_Wind_2.0: Episode 18, Mean R = -130.3 *****
+PolicyLoss: -0.00507
+ValFuncLoss: 0.00402
+
+
+***** MTL_Wind_3.0: Episode 18, Mean R = -123.0 *****
+PolicyLoss: -0.0209
+ValFuncLoss: 0.00201
+
+
+---- Saved Agent at Episode 18 ----
+
+
+
+*************************************
+***** MTL_Wind_1.0: Episode 21, Mean R = -95.1 *****
+PolicyLoss: -0.0127
+ValFuncLoss: 0.000772
+
+
+***** MTL_Wind_2.0: Episode 21, Mean R = -125.1 *****
+PolicyLoss: -0.0103
+ValFuncLoss: 0.00582
+
+
+***** MTL_Wind_3.0: Episode 21, Mean R = -120.9 *****
+PolicyLoss: -0.0176
+ValFuncLoss: 0.00125
+
+
+---- Saved Agent at Episode 21 ----
+
+
+
