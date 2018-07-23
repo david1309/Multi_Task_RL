@@ -15,8 +15,8 @@ from collections import OrderedDict
 
 class Policy(object):
     """ NN-based policy approximation """
-    def __init__(self, obs_dim, act_dim, kl_targ, policy_logvar, dims_core_hid, dims_head_hid, num_tasks,\
-                 act_func_name = "relu", clipping_range=None):
+    def __init__(self, obs_dim, act_dim, dims_core_hid, dims_head_hid, num_tasks,\
+                 act_func_name = "relu", pol_loss_type = "kl", kl_targ = 0.01, clipping_range = 0.2, policy_logvar = 1.0):
         """
         Args:
             obs_dim: num observation dimensions (int)
@@ -26,14 +26,19 @@ class Policy(object):
         """
         self.beta = [1.0]*num_tasks  # Beta: gain of D_KL divergance loss term
         self.eta = 50  # Eta: gain of the loss term controling that D_KL doesn't exceed KL_targ (hinge loss)
+
+        self.pol_loss_type = pol_loss_type
         self.kl_targ = kl_targ  # Target value for the KL Divergance between pi_old and pi_new
+        self.clipping_range = clipping_range
+
+
         self.policy_logvar = policy_logvar
         self.epochs = 20 # Trainning Epochs
         self.lr = None
         self.lr_multiplier = [1.0]*num_tasks  # dynamically adjust lr based on value of D_KL
         self.obs_dim = obs_dim
         self.act_dim = act_dim
-        self.clipping_range = clipping_range
+
 
         # NN architecture parameters
         self.dims_core_hid = dims_core_hid
@@ -252,7 +257,7 @@ class Policy(object):
 
         See: https://arxiv.org/pdf/1707.02286.pdf
         """
-        if self.clipping_range is not None:
+        if self.pol_loss_type == "clip" or self.pol_loss_type == "both":
             print('Loss: setting up loss with Clipping Objective ({})'.format(self.clipping_range))
             pg_ratio = tf.exp(self.logp - self.logp_old)
             # TODO: Avoid hardcoding the clipping_range
@@ -260,12 +265,14 @@ class Policy(object):
             surrogate_loss = tf.minimum(self.advantages_ph * pg_ratio, self.advantages_ph * clipped_pg_ratio)
             self.loss = -tf.reduce_mean(surrogate_loss)
 
-        else:
+        if self.pol_loss_type == "kl" or self.pol_loss_type == "both":
             print('Loss: setting up loss with KL Penalty ({})'.format(self.kl_targ))
             loss1 = -tf.reduce_mean(self.advantages_ph * tf.exp(self.logp - self.logp_old))
             loss2 = tf.reduce_mean(self.beta_ph * self.kl)
             loss3 = self.eta_ph * tf.square(tf.maximum(0.0, self.kl - 2.0 * self.kl_targ))
-            self.loss = loss1 + loss2 + loss3
+
+            if self.pol_loss_type == "both": self.loss += loss1 + loss2 + loss3
+            else: self.loss = loss1 + loss2 + loss3
 
         optimizer = tf.train.AdamOptimizer(self.lr_ph)
         self.train_op = optimizer.minimize(self.loss)

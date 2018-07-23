@@ -358,7 +358,7 @@ class GracefulKiller:
 
 
 # Main Train Execution
-def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, batch_size, init_pol_logvar, animate,\
+def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss_type, batch_size, init_pol_logvar, animate,\
         save_video, save_rate, num_episodes_sim, task_params, task_name, dims_core_hid, dims_head_hid, act_func_name):
     """ Main training loop
 
@@ -369,6 +369,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, batch_si
         lamda: lambda from Generalized Advantage Estimate
         kl_targ: D_KL target for policy update [D_KL(pi_old || pi_new)
         clipping_range: max value to clip the policy gradient ratio
+        pol_loss_type: string determining which type of loss to use for the Policy Network
         batch_size: number of episodes per policy training batch
         init_pol_logvar: natural log of initial policy variance
         save_video: Boolean determining if videos of the agent will be saved
@@ -414,8 +415,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, batch_si
     dims_head_hid.insert(0, dims_head_hid[-1])
     
     val_func = NNValueFunction(obs_dim, dims_core_hid, dims_head_hid, num_tasks)#, act_func_name)
-
-    policy = Policy(obs_dim, act_dim, kl_targ, init_pol_logvar, dims_core_hid, dims_head_hid, num_tasks, clipping_range=clipping_range)#, act_func_name)
+    policy = Policy(obs_dim, act_dim, dims_core_hid, dims_head_hid, num_tasks, pol_loss_type = pol_loss_type)
     # run some episodes to initialize scalers 
     for task in range(num_tasks): 
         run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
@@ -528,13 +528,14 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--lamda', type=float, 
                         help='Lambda for Generalized Advantage Estimation [0.98]', default=0.98)
     parser.add_argument('-k', '--kl_targ', type=float, help='D_KL target value [0.01]', default=0.01)
-    parser.add_argument('-clip', '--clipping_range', type=float, help='clipping range of Policy gradient ratio [None]', default=None)
-
+    parser.add_argument('-clip', '--clipping_range', type=float, help='clipping range of Policy gradient ratio [0.2]', default=0.2)
+    parser.add_argument('-ltype', '--pol_loss_type', type=str, 
+                         help='Determines which loss to use in the Policy Network (kl, clip, both)[kl]',  default="kl")
     parser.add_argument('-b', '--batch_size', type=int,
                         help='Number of episodes used for each training batch [20]', default=20)
     parser.add_argument('-v', '--init_pol_logvar', type=float,
                         help='Initial policy log-variance [1.0]',
-                        default=-1.0)
+                        default=1.0)
     parser.add_argument('-a', '--animate', type=str,  help='Determines if simulation will be rendered [False]',
                         default="False")
     parser.add_argument('-svid', '--save_video', type=str,  
