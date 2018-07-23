@@ -84,6 +84,7 @@ class Logger(object):
         self.f = open(path, 'w')
         self.writer = None  # DictWriter created with first call to write() method
         self.logname_file = logname_file
+        self.log_path = path
 
     def write(self, display=True):
         """ Write 1 log entry to file, and optionally to stdout

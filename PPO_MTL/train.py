@@ -390,6 +390,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
     print ("\n\n------ PATHS: ------")
     start_time = datetime.now()
     now = start_time.strftime("%b-%d_%H:%M:%S") # create unique directories
+    logs_path = os.path.join('log-files', env_name, task_name, task_params_str, now)
 
     for task in range(num_tasks):
         # Create task specific environment 
@@ -400,11 +401,17 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
         # Create task specific Paths and logger object
         loggers[task] = Logger(logname= [env_name, task_name, task_params_str], now=now, \
                                logname_file= "_{}_{}".format(task_name, task_params[task])) 
+
+        # Auxiliary saver (becase logger sometimes fails or takes to much time)
+        with open(logs_path + '/aux_{}_{}.txt'.format(task_name, task_params[task]), 'w') as f: 
+            f.write("_Episode" + "  " + "_MeanReward")
         
     aigym_path= os.path.join('./videos', env_name, task_name, task_params_str, now) # videos folders 
-    agent_path = os.path.join('agents', env_name , task_name, task_params_str, now) # agent / policy folders
+    agent_path = os.path.join('agents', env_name , task_name, task_params_str, now) # agent / policy folders    
     os.makedirs(agent_path)
     with open(agent_path + '/commandline_args.txt', 'w') as f: f.write(' '.join(sys.argv[1:]))  # save commandline command
+    with open(logs_path + '/commandline_args.txt', 'w') as f: f.write(' '.join(sys.argv[1:]))  # save commandline command
+
     print("\nPath for Saved Videos : {}".format(aigym_path)) 
     print("Path for Saved Agents: {}\n".format(agent_path))    
 
@@ -466,7 +473,12 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
         for task in range(num_tasks):
             pol_summary = policy.update(task, observes_all[task], actions_all[task], advantages_all[task], loggers[task])  # update policy
             val_summary = val_func.fit(task, observes_all[task], disc_sum_rew_all[task], loggers[task])  # update value function
+            # Auxiliary saver (because logger sometimes fails or takes to much time)
+            with open(logs_path + '/aux_{}_{}.txt'.format(task_name, task_params[task]), 'a') as f: 
+                f.write("\n" + str(loggers[task].log_entry['_Episode']) + "  " + str(loggers[task].log_entry['_MeanReward'])) 
             loggers[task].write(display=True)  # write logger results to file and stdout
+
+
 
             tb_pol_writer.add_summary(pol_summary, global_step=episode)
             tb_val_writer.add_summary(val_summary, global_step=episode)
@@ -513,7 +525,8 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
     delta_time = divmod(elapsed_time.days * 86400 + elapsed_time.seconds, 60)
     delta_str = "Elapsed Time: {} min {} seconds".format(delta_time[0], delta_time[1])
     # save elapsed time, 'a' to append not overwrite
-    with open(agent_path + '/commandline_args.txt', 'a') as f: f.write('\n\n' + delta_str)  
+    with open(agent_path + '/commandline_args.txt', 'a') as f: f.write('\n\n' + delta_str) 
+    with open(logs_path + '/commandline_args.txt', 'a') as f: f.write('\n\n' + delta_str)  
 
 
 # Example of how to Train Agent:
