@@ -1,8 +1,8 @@
-2018-07-23 03:07:12.652364: I tensorflow/core/platform/cpu_feature_guard.cc:137] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
-2018-07-23 03:07:13.832283: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
+2018-07-23 17:31:38.328374: I tensorflow/core/platform/cpu_feature_guard.cc:137] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2018-07-23 17:31:39.528608: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
 name: GeForce GTX 1060 6GB major: 6 minor: 1 memoryClockRate(GHz): 1.7085
-pciBusID: 0000:08:00.0
+pciBusID: 0000:04:00.0
 totalMemory: 5.94GiB freeMemory: 5.86GiB
-2018-07-23 03:07:13.832619: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:08:00.0, compute capability: 6.1)
-2018-07-23 03:07:14.921178: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:08:00.0, compute capability: 6.1)
-slurmstepd: error: *** JOB 151636 ON landonia23 CANCELLED AT 2018-07-23T11:07:15 DUE TO TIME LIMIT ***
+2018-07-23 17:31:39.528904: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:04:00.0, compute capability: 6.1)
+2018-07-23 17:31:47.245697: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:04:00.0, compute capability: 6.1)
+slurmstepd: error: *** JOB 152035 ON landonia13 CANCELLED AT 2018-07-24T01:31:20 DUE TO TIME LIMIT ***

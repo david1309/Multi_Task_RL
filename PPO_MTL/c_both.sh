@@ -31,5 +31,5 @@ export TMP=/disk/scratch/${STUDENT_ID}/
 
 source /home/${STUDENT_ID}/miniconda3/bin/activate mtrl
 
-python train.py BipedalWalker-v2 --task_params 0 --task_name Wind -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 20000 --batch_size 20 --save_rate 500
+python train.py BipedalWalker-v2 --task_params 0 1 2 --task_name PPO_loss_mtl -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 20000 --batch_size 20 --save_rate 500
 
