@@ -5,7 +5,10 @@
 #SBATCH --mem=16000  # memory in Mb
 #SBATCH -o gpu_logs/kl_outfile__  # send stdout to sample_experiment_outfile
 #SBATCH -e gpu_logs/kl_errfile__  # send stderr to sample_experiment_errfile
-#SBATCH -t 8:00:00  # time requested in hour:minute:seconds
+#SBATCH -t 30:00:00  # time requested in hour:minute:seconds
+#SBATCH -p LongJobs
+#SBATCH --nodelist= 3
+
 export CUDA_HOME=/opt/cuda-8.0.44
 
 export CUDNN_HOME=/opt/cuDNN-6.0_8.0

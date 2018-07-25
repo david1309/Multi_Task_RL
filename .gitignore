@@ -10,6 +10,8 @@ PPO_MTL/videos/
 PPO_STL/videos/
 PPO_MTL/videos
 PPO_STL/videos
+PPO_MTL/gpu_logs
+PPO_MTL/*.sh
 
 # Python things
 __pycache__/

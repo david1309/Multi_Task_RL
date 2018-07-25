@@ -5,7 +5,9 @@
 #SBATCH --mem=16000  # memory in Mb
 #SBATCH -o gpu_logs/clip_outfile__  # send stdout to sample_experiment_outfile
 #SBATCH -e gpu_logs/clip_errfile__  # send stderr to sample_experiment_errfile
-#SBATCH -t 8:00:00  # time requested in hour:minute:seconds
+#SBATCH -t 30:00:00  # time requested in hour:minute:seconds
+#SBATCH -p LongJobs
+#SBATCH --nodelist= 10
 
 export CUDA_HOME=/opt/cuda-8.0.44
 

@@ -1,8 +1,96 @@
-2018-07-23 17:33:56.155451: I tensorflow/core/platform/cpu_feature_guard.cc:137] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
-2018-07-23 17:33:57.359929: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
+2018-07-25 12:15:00.244326: I tensorflow/core/platform/cpu_feature_guard.cc:137] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2018-07-25 12:15:00.758833: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
 name: GeForce GTX 1060 6GB major: 6 minor: 1 memoryClockRate(GHz): 1.7085
-pciBusID: 0000:05:00.0
-totalMemory: 5.94GiB freeMemory: 5.86GiB
-2018-07-23 17:33:57.360259: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:05:00.0, compute capability: 6.1)
-2018-07-23 17:33:59.180407: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:05:00.0, compute capability: 6.1)
-slurmstepd: error: *** JOB 152038 ON landonia23 CANCELLED AT 2018-07-24T01:33:51 DUE TO TIME LIMIT ***
+pciBusID: 0000:04:00.0
+totalMemory: 5.94GiB freeMemory: 34.31MiB
+2018-07-25 12:15:00.759180: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:04:00.0, compute capability: 6.1)
+2018-07-25 12:15:00.760660: E tensorflow/stream_executor/cuda/cuda_driver.cc:936] failed to allocate 34.31M (35979264 bytes) from device: CUDA_ERROR_OUT_OF_MEMORY
+2018-07-25 12:15:02.485836: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: GeForce GTX 1060 6GB, pci bus id: 0000:04:00.0, compute capability: 6.1)
+2018-07-25 12:15:02.964100: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:02.976668: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:02.979016: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:02.980988: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:02.982924: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:02.984870: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:02.986852: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:02.988890: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:03.013114: E tensorflow/stream_executor/cuda/cuda_blas.cc:366] failed to create cublas handle: CUBLAS_STATUS_NOT_INITIALIZED
+2018-07-25 12:15:03.013344: W tensorflow/stream_executor/stream.cc:1901] attempting to perform BLAS operation using StreamExecutor without BLAS support
+2018-07-25 12:15:03.020414: W tensorflow/core/framework/op_kernel.cc:1192] Internal: Blas GEMM launch failed : a.shape=(1, 25), b.shape=(25, 64), m=1, n=64, k=25
+	 [[Node: policy_NN/Core/h1_core/MatMul = MatMul[T=DT_FLOAT, transpose_a=false, transpose_b=false, _device="/job:localhost/replica:0/task:0/device:GPU:0"](_arg_obs_0_0/_7, policy_NN/Core/h1_core/kernel/read)]]
+2018-07-25 12:15:03.022880: W tensorflow/core/framework/op_kernel.cc:1192] Internal: Blas GEMM launch failed : a.shape=(1, 25), b.shape=(25, 64), m=1, n=64, k=25
+	 [[Node: policy_NN/Core/h1_core/MatMul = MatMul[T=DT_FLOAT, transpose_a=false, transpose_b=false, _device="/job:localhost/replica:0/task:0/device:GPU:0"](_arg_obs_0_0/_7, policy_NN/Core/h1_core/kernel/read)]]
+2018-07-25 12:15:03.027434: W tensorflow/core/framework/op_kernel.cc:1192] Internal: Blas GEMM launch failed : a.shape=(1, 25), b.shape=(25, 64), m=1, n=64, k=25
+	 [[Node: policy_NN/Core/h1_core/MatMul = MatMul[T=DT_FLOAT, transpose_a=false, transpose_b=false, _device="/job:localhost/replica:0/task:0/device:GPU:0"](_arg_obs_0_0/_7, policy_NN/Core/h1_core/kernel/read)]]
+/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/importlib/_bootstrap.py:219: RuntimeWarning: compiletime version 3.5 of module 'tensorflow.python.framework.fast_tensor_util' does not match runtime version 3.6
+  return f(*args, **kwds)
+Traceback (most recent call last):
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 1323, in _do_call
+    return fn(*args)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 1302, in _run_fn
+    status, run_metadata)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/framework/errors_impl.py", line 473, in __exit__
+    c_api.TF_GetCode(self.status.status))
+tensorflow.python.framework.errors_impl.InternalError: Blas GEMM launch failed : a.shape=(1, 25), b.shape=(25, 64), m=1, n=64, k=25
+	 [[Node: policy_NN/Core/h1_core/MatMul = MatMul[T=DT_FLOAT, transpose_a=false, transpose_b=false, _device="/job:localhost/replica:0/task:0/device:GPU:0"](_arg_obs_0_0/_7, policy_NN/Core/h1_core/kernel/read)]]
+	 [[Node: add_5/_15 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/device:CPU:0", send_device="/job:localhost/replica:0/task:0/device:GPU:0", send_device_incarnation=1, tensor_name="edge_160_add_5", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/device:CPU:0"]()]]
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "train.py", line 579, in <module>
+    main(**vars(args))
+  File "train.py", line 428, in main
+    run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
+  File "train.py", line 145, in run_policy
+    observes, actions, rewards, unscaled_obs = run_episode(env, policy, scaler, task, animate)
+  File "train.py", line 109, in run_episode
+    action = policy.sample(obs, task).reshape((1, -1)).astype(np.float32)
+  File "/mnt/mscteach_home/s1779182/Multi_Task_RL/PPO_MTL/policy.py", line 295, in sample
+    return self.sess.run(self.sampled_act, feed_dict=feed_dict)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 889, in run
+    run_metadata_ptr)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 1120, in _run
+    feed_dict_tensor, options, run_metadata)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 1317, in _do_run
+    options, run_metadata)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 1336, in _do_call
+    raise type(e)(node_def, op, message)
+tensorflow.python.framework.errors_impl.InternalError: Blas GEMM launch failed : a.shape=(1, 25), b.shape=(25, 64), m=1, n=64, k=25
+	 [[Node: policy_NN/Core/h1_core/MatMul = MatMul[T=DT_FLOAT, transpose_a=false, transpose_b=false, _device="/job:localhost/replica:0/task:0/device:GPU:0"](_arg_obs_0_0/_7, policy_NN/Core/h1_core/kernel/read)]]
+	 [[Node: add_5/_15 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/device:CPU:0", send_device="/job:localhost/replica:0/task:0/device:GPU:0", send_device_incarnation=1, tensor_name="edge_160_add_5", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/device:CPU:0"]()]]
+
+Caused by op 'policy_NN/Core/h1_core/MatMul', defined at:
+  File "train.py", line 579, in <module>
+    main(**vars(args))
+  File "train.py", line 425, in main
+    policy = Policy(obs_dim, act_dim, dims_core_hid, dims_head_hid, num_tasks, pol_loss_type = pol_loss_type)
+  File "/mnt/mscteach_home/s1779182/Multi_Task_RL/PPO_MTL/policy.py", line 52, in __init__
+    self._build_graph()
+  File "/mnt/mscteach_home/s1779182/Multi_Task_RL/PPO_MTL/policy.py", line 62, in _build_graph
+    self._policy_nn() # defines architecture of Policy Network and its outputs (means & log_vars)
+  File "/mnt/mscteach_home/s1779182/Multi_Task_RL/PPO_MTL/policy.py", line 145, in _policy_nn
+    stddev=np.sqrt(1 / self.dims_core_hid[hid])), name="h{}_core".format(hid+1))
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/layers/core.py", line 250, in dense
+    return layer.apply(inputs)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/layers/base.py", line 671, in apply
+    return self.__call__(inputs, *args, **kwargs)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/layers/base.py", line 575, in __call__
+    outputs = self.call(inputs, *args, **kwargs)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/layers/core.py", line 162, in call
+    outputs = standard_ops.matmul(inputs, self.kernel)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/ops/math_ops.py", line 1891, in matmul
+    a, b, transpose_a=transpose_a, transpose_b=transpose_b, name=name)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/ops/gen_math_ops.py", line 2437, in _mat_mul
+    name=name)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/framework/op_def_library.py", line 787, in _apply_op_helper
+    op_def=op_def)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/framework/ops.py", line 2956, in create_op
+    op_def=op_def)
+  File "/home/s1779182/miniconda3/envs/mtrl/lib/python3.6/site-packages/tensorflow/python/framework/ops.py", line 1470, in __init__
+    self._traceback = self._graph._extract_stack()  # pylint: disable=protected-access
+
+InternalError (see above for traceback): Blas GEMM launch failed : a.shape=(1, 25), b.shape=(25, 64), m=1, n=64, k=25
+	 [[Node: policy_NN/Core/h1_core/MatMul = MatMul[T=DT_FLOAT, transpose_a=false, transpose_b=false, _device="/job:localhost/replica:0/task:0/device:GPU:0"](_arg_obs_0_0/_7, policy_NN/Core/h1_core/kernel/read)]]
+	 [[Node: add_5/_15 = _Recv[client_terminated=false, recv_device="/job:localhost/replica:0/task:0/device:CPU:0", send_device="/job:localhost/replica:0/task:0/device:GPU:0", send_device_incarnation=1, tensor_name="edge_160_add_5", tensor_type=DT_FLOAT, _device="/job:localhost/replica:0/task:0/device:CPU:0"]()]]
+
