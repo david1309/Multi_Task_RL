@@ -42,6 +42,7 @@ import signal
 import pickle # to save Scaler
 import tensorflow as tf # need to be imported here to run summary ops
 import sys # used to save command line arguments
+import pandas as pd # to modify and overwrite the aux_logs
 
 
 
@@ -359,7 +360,8 @@ class GracefulKiller:
 
 # Main Train Execution
 def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss_type, batch_size, init_pol_logvar, animate,\
-        save_video, save_rate, num_episodes_sim, task_params, task_name, dims_core_hid, dims_head_hid, act_func_name):
+        save_video, save_rate, num_episodes_sim, task_params, task_name, dims_core_hid, dims_head_hid, act_func_name,\
+        episode_to_load, now_to_load):
     """ Main training loop
 
     Args:
@@ -389,28 +391,36 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
 
     print ("\n\n------ PATHS: ------")
     start_time = datetime.now()
-    now = start_time.strftime("%b-%d_%H:%M:%S") # create unique directories
+    if episode_to_load == None: now = start_time.strftime("%b-%d_%H:%M:%S") # If NOT loading from Checkpoint -> used to  create unique directories
+    else: 
+        assert now_to_load != None,\
+            "\n\nWARNING: Date time to load ({}) was not provided. Please provide a valid date time of an experiment".format(now_to_load)
+        now = now_to_load
     logs_path = os.path.join('log-files', env_name, task_name, task_params_str, now)
 
     for task in range(num_tasks):
         # Create task specific environment 
         envs[task], obs_dim, act_dim = init_gym(env_name, task_param = task_params[task])
         obs_dim += 1  # add 1 to obs dimension for time step feature (see run_episode())
-        scalers[task] = Scaler(obs_dim)
 
         # Create task specific Paths and logger object
         loggers[task] = Logger(logname= [env_name, task_name, task_params_str], now=now, \
                                logname_file= "_{}_{}".format(task_name, task_params[task])) 
 
-        # Auxiliary saver (becase logger sometimes fails or takes to much time)
-        with open(logs_path + '/aux_{}_{}.txt'.format(task_name, task_params[task]), 'w') as f: 
-            f.write("_Episode" + "  " + "_MeanReward")
+        if episode_to_load == None: # If NOT loading from Checkpoint
+            scalers[task] = Scaler(obs_dim)            
+
+            # Auxiliary saver (becase logger sometimes fails or takes to much time)
+            with open(logs_path + '/aux_{}_{}.txt'.format(task_name, task_params[task]), 'w') as f: 
+                f.write("_Episode" + "  " + "_MeanReward")
+
         
     aigym_path= os.path.join('./videos', env_name, task_name, task_params_str, now) # videos folders 
-    agent_path = os.path.join('agents', env_name , task_name, task_params_str, now) # agent / policy folders    
-    os.makedirs(agent_path)
-    with open(agent_path + '/commandline_args.txt', 'w') as f: f.write(' '.join(sys.argv[1:]))  # save commandline command
-    with open(logs_path + '/commandline_args.txt', 'w') as f: f.write(' '.join(sys.argv[1:]))  # save commandline command
+    agent_path = os.path.join('agents', env_name , task_name, task_params_str, now) # agent / policy folders  
+    if episode_to_load == None: # If NOT loading from Checkpoint 
+        os.makedirs(agent_path)
+        with open(agent_path + '/commandline_args.txt', 'w') as f: f.write(' '.join(sys.argv[1:]))  # save commandline command
+        with open(logs_path + '/commandline_args.txt', 'w') as f: f.write(' '.join(sys.argv[1:]))  # save commandline command
 
     print("\nPath for Saved Videos : {}".format(aigym_path)) 
     print("Path for Saved Agents: {}\n".format(agent_path))    
@@ -423,13 +433,42 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
     
     val_func = NNValueFunction(obs_dim, dims_core_hid, dims_head_hid, num_tasks)#, act_func_name)
     policy = Policy(obs_dim, act_dim, dims_core_hid, dims_head_hid, num_tasks, pol_loss_type = pol_loss_type)
-    # run some episodes to initialize scalers 
-    for task in range(num_tasks): 
-        run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
 
-    # Tesor Board writer
-    os.makedirs(agent_path + '/tensor_board/policy')
-    os.makedirs(agent_path + '/tensor_board/valFunc')
+    # Load from Checkpoint:
+    # Validate intented episode to load OR get last episode number if no target load episode was provided 
+    if episode_to_load != None:
+        load_agent_path = agent_path # agent / policy folders
+        saved_ep_list = [file.split(".")[0].split("_")[-1] for file in os.listdir(load_agent_path) if "policy" in file]
+
+        if episode_to_load == -1: # Get last saved episode
+            episode_to_load = sorted([int(ep_string) for ep_string in saved_ep_list])[-1]
+
+        else: # Validate if episode_to_load was indeed saved 
+            assert str(episode_to_load) in saved_ep_list,\
+            "\n\nWARNING: Episode you want to load ({}) was not stored during trainning".format(episode_to_load)
+
+        # Load Policy Network's Ops and Variables & Load Scaler Object
+        policy.tf_saver.restore(policy.sess, "{}/policy_ep_{}".format(load_agent_path, episode_to_load)) 
+        val_func.tf_saver.restore(val_func.sess, "{}/val_func_ep_{}".format(load_agent_path, episode_to_load))
+        scalers = pickle.load(open("{}/scalers_ep_{}.p".format(load_agent_path, episode_to_load), 'rb'))         
+        print("\n\n ---- CHECKPOINT LOAD:  Episoded Loaded **{}**".format(episode_to_load))
+
+        # Delete extra epochs that where logged to the auxiliary logs
+        for task in range(num_tasks):
+            aux_log_path = logs_path + '/aux_{}_{}.txt'.format(task_name, task_params[task])
+            aux_log = pd.read_table(aux_log_path, delim_whitespace=True)
+            idx_to_cut = aux_log.index[aux_log["_Episode"] == episode_to_load ].tolist()[0]
+            aux_log[0:idx_to_cut+1].to_csv(aux_log_path, header=True, index=False, sep=' ', mode='w') # overwrite trimmed aux_log
+
+
+    # If NOT loading from Checkpoint: run some episodes to initialize scalers and create Tensor board dirs
+    elif episode_to_load == None:
+        for task in range(num_tasks): run_policy(envs[task], policy, scalers[task], loggers[task], episodes=5, task=task)  
+
+        # Tensor Board writer
+        os.makedirs(agent_path + '/tensor_board/policy')
+        os.makedirs(agent_path + '/tensor_board/valFunc')
+
     tb_pol_writer = tf.summary.FileWriter(agent_path + '/tensor_board/policy', graph=policy.g)
     tb_val_writer = tf.summary.FileWriter(agent_path + '/tensor_board/valFunc', graph=val_func.g)
 
@@ -440,7 +479,9 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
     save_video = True if save_video == "True" else False
     saver_offset = save_rate
     killer = GracefulKiller()
-    episode = 0
+
+    if episode_to_load == None: episode = 0
+    else: episode = episode_to_load
     
     # Episode is counted across all tasks i.e. N episodes indicates each tasks has been runned for N times
     while episode < num_episodes and not killer.kill_now:
@@ -477,8 +518,6 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
             with open(logs_path + '/aux_{}_{}.txt'.format(task_name, task_params[task]), 'a') as f: 
                 f.write("\n" + str(loggers[task].log_entry['_Episode']) + "  " + str(loggers[task].log_entry['_MeanReward'])) 
             loggers[task].write(display=True)  # write logger results to file and stdout
-
-
 
             tb_pol_writer.add_summary(pol_summary, global_step=episode)
             tb_val_writer.add_summary(val_summary, global_step=episode)
@@ -530,8 +569,12 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
 
 
 # Example of how to Train Agent:
-# python train.py BipedalWalker-v2 --task_params 1 2 3 --task_name Wind --num_episodes 9 --batch_size 3 --save_video False --save_rate 2
-# python train.py BipedalWalker-v2 --task_params 1 2 3 --task_name Wind -dcore 64 32 16 -dhead 128 64 16 --num_episodes 9 --batch_size 3 --save_video False --save_rate 2
+# python train.py BipedalWalker-v2 --task_params 1 2 3 --task_name Wind -dcore 64 32 16 -dhead 128 64 16 --pol_loss_type both --num_episodes 9 --batch_size 3 --save_video False --save_rate 2
+
+# Example how to reload a agent from Checkpoint:
+# python train.py BipedalWalker-v2 --episode_to_load -1 --now_to_load Jul-25_23:42:17 --task_params 1 2 3 --task_name Wind -dcore 64 32 16 -dhead 128 64 16 --pol_loss_type both --num_episodes 9 --batch_size 3 --save_video False --save_rate 2
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment using Proximal Policy Optimizer'))
     parser.add_argument('env_name', type=str, help='OpenAI Gym environment name')
@@ -545,7 +588,7 @@ if __name__ == "__main__":
     parser.add_argument('-ltype', '--pol_loss_type', type=str, 
                          help='Determines which loss to use in the Policy Network (kl, clip, both)[kl]',  default="kl")
     parser.add_argument('-b', '--batch_size', type=int,
-                        help='Number of episodes used for each training batch [20]', default=20)
+                        help='Number of episodes used for each training batch [5]', default=5)
     parser.add_argument('-v', '--init_pol_logvar', type=float,
                         help='Initial policy log-variance [1.0]',
                         default=1.0)
@@ -571,6 +614,13 @@ if __name__ == "__main__":
 
     parser.add_argument('-act', '--act_func_name', type=str, help='Name of activation function to use (tan, relu, lrelu) [tan]',\
                          default="tan")
+
+    # Reload from checkpoint
+    parser.add_argument('-epload', '--episode_to_load', type=int,
+                        help='Episode of saved agent to load; default is NOT to load anything [None]', default=None)
+
+    parser.add_argument('-nowload', '--now_to_load', type=str, help='Date time of agent to load (e.g.Jun-13_03:02:11)', default=None)
+
 
     args = parser.parse_args()
 

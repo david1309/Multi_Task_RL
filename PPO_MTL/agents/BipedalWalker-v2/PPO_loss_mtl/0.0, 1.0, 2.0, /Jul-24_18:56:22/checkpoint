@@ -1,2 +1,2 @@
-model_checkpoint_path: "val_func_ep_4500"
-all_model_checkpoint_paths: "val_func_ep_4500"
+model_checkpoint_path: "val_func_ep_6000"
+all_model_checkpoint_paths: "val_func_ep_6000"

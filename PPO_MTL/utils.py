@@ -72,7 +72,9 @@ class Logger(object):
         """
         logname = ''.join(str(e) +'/' for e in logname)
         path = os.path.join('log-files', logname, now)
-        if not os.path.exists(path):  os.makedirs(path) # create directory if it doesn't exist
+        self.is_loaded_checkpoint = os.path.exists(path) # True if agent is being relodaded from checkpoint (log already exist)
+
+        if not self.is_loaded_checkpoint:  os.makedirs(path) # create directory if it doesn't exist
         # filenames = glob.glob('*.py')  # put copy of all python files in log_dir
         # for filename in filenames:     # for reference
         #     shutil.copy(filename, path)
@@ -81,7 +83,7 @@ class Logger(object):
 
         self.write_header = True
         self.log_entry = {}
-        self.f = open(path, 'w')
+        self.f = open(path, 'a')
         self.writer = None  # DictWriter created with first call to write() method
         self.logname_file = logname_file
         self.log_path = path
@@ -98,7 +100,7 @@ class Logger(object):
         if self.write_header:
             fieldnames = [x for x in self.log_entry.keys()]
             self.writer = csv.DictWriter(self.f, fieldnames=fieldnames)
-            self.writer.writeheader()
+            if not self.is_loaded_checkpoint: self.writer.writeheader() # Only if logger does not exist, write a row with the Headers
             self.write_header = False
         self.writer.writerow(self.log_entry)
         self.log_entry = {}
