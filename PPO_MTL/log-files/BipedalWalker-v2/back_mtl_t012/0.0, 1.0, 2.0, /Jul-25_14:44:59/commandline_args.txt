@@ -1,1 +1,0 @@
-BipedalWalker-v2 --task_params 0 1 2 --task_name mtl_t012 -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 20000 --batch_size 5 --save_rate 50
