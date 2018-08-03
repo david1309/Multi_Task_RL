@@ -1,1 +1,0 @@
-BipedalWalker-v2 --task_params 0 1 2 --task_name PPO_loss_mtl -dcore 64 64 64 64 -dhead 64 64 64 --pol_loss_type kl --num_episodes 20000 --batch_size 20 --save_rate 500
