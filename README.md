@@ -7,7 +7,7 @@ Trained using Proximal Policy Optimization (PPO) and KL-divergence constraint fr
 
 * Disseration document describing the project: [MTRL_disseration.pdf](https://github.com/david1309/Multi_Task_RL/blob/master/MTRL_disseration.pdf)
 
-* Summary videos showing Single and Multi Domain/Task Results: https://www.youtube.com/watch?v=XLTFf98Sg5I
+* Video showing Single and Multi Domain/Task Results: [Summary Video](https://www.youtube.com/watch?v=XLTFf98Sg5I)
 
 David C. Alvarez-Charris, Chenyang Zhao, Timothy Hospedales
 University of Edinburgh - 2018
