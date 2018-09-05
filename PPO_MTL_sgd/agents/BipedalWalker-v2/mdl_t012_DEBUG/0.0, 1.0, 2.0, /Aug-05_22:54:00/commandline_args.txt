@@ -1,1 +1,0 @@
-BipedalWalker-v2 --task_params 0 1 2 --task_name mdl_t012_DEBUG -dcore 64 64 -dhead 64 --pol_loss_type kl --max_time_steps 1000000000000 --time_steps_batch 32000 --time_steps_mini_batch 4096 --save_video False --save_rate 50000

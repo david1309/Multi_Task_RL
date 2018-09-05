@@ -2,7 +2,8 @@
 Policy Neural Network trainned with PPO, KL Divergence Constraint
 Multi Task Learning  achieved thorugh Hard Parameter Sharing NN 
 
-Adapted by David Alvarez Charris (david13.ing@gmail.com)
+Various Act. Fun, Multi Headed Architectures, New Policy Ratio Constraints, and major code improvements 
+done by David Alvarez Charris (david13.ing@gmail.com)
 
 Original code: Patrick Coady (pat-coady.github.io)
 """

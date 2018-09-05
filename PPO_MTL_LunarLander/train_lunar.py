@@ -2,7 +2,7 @@
 PPO: Proximal Policy Optimization for Multi Task Learning done through
      Hard Parameter Sharing Neural Networks Architecture
 
-Adapted by David Alvarez Charris (david13.ing@gmail.com)
+Multi Task, Multi Domain, and strong code improments done by David Alvarez Charris (david13.ing@gmail.com)
 
 Original code: Patrick Coady (pat-coady.github.io)
 
@@ -341,6 +341,7 @@ def sim_agent(env, policy, task, scaler, num_episodes_sim=1, animate=False, save
 
     # Get Stats over all episodes    
     mean_reward_episodes = np.mean(episodes_tot_reward)    
+    print("Simulated Episode (for Video) Total Reward: {}".format(mean_reward_episodes))  
 
     return mean_reward_episodes
 
@@ -482,6 +483,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
 
     if episode_to_load == None: episode = 0
     else: episode = episode_to_load
+
     
     # Episode is counted across all tasks i.e. N episodes indicates each tasks has been runned for N times
     while episode < num_episodes and not killer.kill_now:
@@ -537,6 +539,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
             if save_video: 
                 print ("---- Saving Video at Episode {} ----".format(episode))
                 for task in range(num_tasks):
+                    print("Environment Lunar Type: {}".format(envs[task].env.spec))
                     _ = sim_agent(envs[task], policy, task, scalers[task], num_episodes_sim, save_video=True, 
                                     out_dir=aigym_path + "/vid_ep_{}/{}_{}".format(episode, task_name, task_params[task]))
                     envs[task].close() # closes window open by monitor wrapper
@@ -573,6 +576,16 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
 
 # Example how to reload a agent from Checkpoint:
 # TODO
+
+# Save video for the best SDL and MDL agents
+
+# Best MDL agent for envs = 0,1,2 (goal, notGoal, fly)
+# python train_lunar.py LunarEnv --save_video True --episode_to_load -1 --now_to_load Aug-09_08:21:30 --task_params 0 1 2 --task_name mtl_diff_R -dcore 64 64 -dhead 64 --pol_loss_type kl --num_episodes 60000 --batch_size 20 --save_rate 1000
+
+# Best SDL agent for envs = 0,1,2 (goal, notGoal, fly)
+# python train_lunar.py LunarEnv --save_video True --episode_to_load -1 --now_to_load Aug-07_00:14:33 --task_params 0 --task_name stl_diff_R -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 30000 --batch_size 20 --save_rate 500
+# python train_lunar.py LunarEnv --save_video True --episode_to_load -1 --now_to_load Aug-07_00:06:18 --task_params 1 --task_name stl_diff_R -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 30000 --batch_size 20 --save_rate 500
+# python train_lunar.py LunarEnv --save_video True --episode_to_load -1 --now_to_load Aug-07_00:04:15 --task_params 2 --task_name stl_diff_R -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 30000 --batch_size 20 --save_rate 500
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment using Proximal Policy Optimizer'))

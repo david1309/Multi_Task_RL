@@ -2,7 +2,7 @@
 PPO: Proximal Policy Optimization for Multi Task Learning done through
      Hard Parameter Sharing Neural Networks Architecture
 
-Adapted by David Alvarez Charris (david13.ing@gmail.com)
+Multi Task, Multi Domain, and strong code improments done by David Alvarez Charris (david13.ing@gmail.com)
 
 Original code: Patrick Coady (pat-coady.github.io)
 
@@ -343,7 +343,8 @@ def sim_agent(env, policy, task, scaler, num_episodes_sim=1, animate=False, save
         episodes_tot_reward.append(reward_sum)
 
     # Get Stats over all episodes    
-    mean_reward_episodes = np.mean(episodes_tot_reward)    
+    mean_reward_episodes = np.mean(episodes_tot_reward)   
+    print("Simulated Episode (for Video) Total Reward: {}".format(mean_reward_episodes))  
 
     return mean_reward_episodes
 
@@ -537,6 +538,7 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
             if save_video: 
                 print ("---- Saving Video at Episode {} ----".format(episode))
                 for task in range(num_tasks):
+                    print("Environment Wind: {}".format(envs[task].env.world.gravity))
                     _ = sim_agent(envs[task], policy, task, scalers[task], num_episodes_sim, save_video=True, 
                                     out_dir=aigym_path + "/vid_ep_{}/{}_{}".format(episode, task_name, task_params[task]))
                     envs[task].close() # closes window open by monitor wrapper
@@ -548,7 +550,6 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
                 if input('Terminate training (y/[n])? ') == 'y':
                     break
                 killer.kill_now = False
-
 
     # ****************  Terminate Variables  **************
     for task in range(num_tasks):
@@ -574,6 +575,15 @@ def main(env_name, num_episodes, gamma, lamda, kl_targ, clipping_range, pol_loss
 # Example how to reload a agent from Checkpoint:
 # python train.py BipedalWalker-v2 --episode_to_load -1 --now_to_load Jul-25_23:42:17 --task_params 1 2 3 --task_name Wind -dcore 64 32 16 -dhead 128 64 16 --pol_loss_type both --num_episodes 9 --batch_size 3 --save_video False --save_rate 2
 
+# Save video for the best SDL and MDL agents
+
+# Best MDL agent for wind = 0,1,2
+# python train.py BipedalWalker-v2 --save_video True --episode_to_load -1 --now_to_load Aug-08_11:51:39 --task_params 0 1 2 --task_name mdl_t012_cascade -dcore 125 50 -dhead 125 --pol_loss_type kl --num_episodes 60000 --batch_size 20 --save_rate 500
+
+# Best SDL agents for each domain wind=0 , wind=1, wind=2
+# python train.py BipedalWalker-v2 --save_video True --episode_to_load -1 --now_to_load Aug-22_00:33:29 --task_params 0 --task_name sdl_t0_casc -dcore 125 50 -dhead 25 --pol_loss_type kl --num_episodes 20000 --batch_size 20 --save_rate 500
+# python train.py BipedalWalker-v2 --save_video True --episode_to_load -1 --now_to_load Jul-24_22:09:08 --task_params 1 --task_name stl_t1 -dcore 64 64 -dhead 64 --pol_loss_type both --num_episodes 20000 --batch_size 5 --save_rate 50
+# python train.py BipedalWalker-v2 --save_video True --episode_to_load -1 --now_to_load Aug-22_00:46:35 --task_params 2 --task_name sdl_t2_casc -dcore 125 50 -dhead 125 --pol_loss_type kl --num_episodes 20000 --batch_size 20 --save_rate 500
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=('Train policy on OpenAI Gym environment using Proximal Policy Optimizer'))

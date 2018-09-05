@@ -2,7 +2,7 @@
 PPO: Proximal Policy Optimization for Multi Task Learning done through
      Hard Parameter Sharing Neural Networks Architecture
 
-Adapted by David Alvarez Charris (david13.ing@gmail.com)
+Multi Task, Multi Domain, and strong code improments done by David Alvarez Charris (david13.ing@gmail.com)
 
 Original code: Patrick Coady (pat-coady.github.io)
 

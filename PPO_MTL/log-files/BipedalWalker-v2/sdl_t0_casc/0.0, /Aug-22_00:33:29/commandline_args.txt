@@ -1,0 +1,9 @@
+BipedalWalker-v2 --task_params 0 --task_name sdl_t0_casc -dcore 125 50 -dhead 25 --pol_loss_type kl --num_episodes 20000 --batch_size 20 --save_rate 500
+
+Elapsed Time: 487 min 27 seconds
+
+Elapsed Time: 0 min 35 seconds
+
+Elapsed Time: 0 min 38 seconds
+
+Elapsed Time: 0 min 5 seconds

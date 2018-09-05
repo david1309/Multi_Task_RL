@@ -3,7 +3,8 @@ State - Value function Neural Network
 Architecture is built for Multi Task Learning , where each of the NN "heads" 
 predicts the value function for a task 
 
-Adapted by David Alvarez Charris (david13.ing@gmail.com)
+Various Act. Fun, Multi Headed Architectures, and major code improvements 
+done by David Alvarez Charris (david13.ing@gmail.com)
 
 Original code: Patrick Coady (pat-coady.github.io)
 """
